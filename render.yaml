@@ -1,9 +1,3 @@
-databases:
-  - name: flatcart-db
-    plan: free
-    databaseName: flatcart
-    user: flatcart
-
 services:
   - type: web
     name: flatcart-backend
@@ -13,9 +7,9 @@ services:
     plan: free
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: flatcart-db
-          property: connectionString
+        sync: false # paste your Neon pooled connection string (the one with "-pooler" in the host)
+      - key: DIRECT_URL
+        sync: false # paste your Neon direct connection string (same host, without "-pooler")
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGIN
