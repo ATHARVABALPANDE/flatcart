@@ -5,7 +5,6 @@ import { useAuth } from '../AuthContext.jsx';
 import ItemRow from '../components/ItemRow.jsx';
 import AddItemForm from '../components/AddItemForm.jsx';
 import PlanSummary from '../components/PlanSummary.jsx';
-import StoreSettingsPanel from '../components/StoreSettingsPanel.jsx';
 import LivePricingPanel from '../components/LivePricingPanel.jsx';
 
 const POLL_MS = 5000;
@@ -17,7 +16,6 @@ export default function Cart() {
 
   const [household, setHousehold] = useState(null);
   const [list, setList] = useState(null);
-  const [storeSettings, setStoreSettings] = useState(null);
   const [livePricing, setLivePricing] = useState(null);
   const [error, setError] = useState('');
   const [showInvite, setShowInvite] = useState(false);
@@ -27,15 +25,6 @@ export default function Cart() {
     try {
       const data = await api.getList(householdId);
       setList(data);
-    } catch (err) {
-      setError(err.message);
-    }
-  }, [householdId]);
-
-  const loadStoreSettings = useCallback(async () => {
-    try {
-      const data = await api.getStoreSettings(householdId);
-      setStoreSettings(data.storeSettings);
     } catch (err) {
       setError(err.message);
     }
@@ -56,12 +45,11 @@ export default function Cart() {
       .then((data) => setHousehold(data.household))
       .catch((err) => setError(err.message));
     loadList();
-    loadStoreSettings();
     loadLivePricing();
 
     pollRef.current = setInterval(loadList, POLL_MS);
     return () => clearInterval(pollRef.current);
-  }, [householdId, loadList, loadStoreSettings, loadLivePricing]);
+  }, [householdId, loadList, loadLivePricing]);
 
   async function handleAdd(item) {
     await api.addItem(householdId, item);
@@ -92,12 +80,6 @@ export default function Cart() {
   async function handleOrderStore(store, itemIds) {
     if (itemIds.length === 0) return;
     await api.orderItems(householdId, store, itemIds);
-    loadList();
-  }
-
-  async function handleUpdateStoreSetting(store, patch) {
-    await api.updateStoreSetting(householdId, store, patch);
-    loadStoreSettings();
     loadList();
   }
 
@@ -187,7 +169,6 @@ export default function Cart() {
         />
       )}
 
-      {storeSettings && <StoreSettingsPanel storeSettings={storeSettings} onUpdate={handleUpdateStoreSetting} />}
       {livePricing && <LivePricingPanel settings={livePricing} onUpdate={handleUpdateLivePricing} />}
 
       {orderedItems.length > 0 && (

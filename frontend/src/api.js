@@ -48,10 +48,6 @@ export const api = {
     request(`/cart/${itemId}/listings/${store}`, { method: 'PUT', body: { price, inStock } }),
   clearListing: (itemId, store) => request(`/cart/${itemId}/listings/${store}`, { method: 'DELETE' }),
 
-  getStoreSettings: (householdId) => request(`/households/${householdId}/store-settings`),
-  updateStoreSetting: (householdId, store, patch) =>
-    request(`/households/${householdId}/store-settings/${store}`, { method: 'PATCH', body: patch }),
-
   getLivePricingSettings: (householdId) => request(`/households/${householdId}/live-pricing`),
   updateLivePricingSettings: (householdId, patch) =>
     request(`/households/${householdId}/live-pricing`, { method: 'PATCH', body: patch }),

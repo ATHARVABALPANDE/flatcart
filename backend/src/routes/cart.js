@@ -24,6 +24,7 @@ function serializeItem(item) {
       price: l.price,
       inStock: l.inStock,
       source: l.source,
+      eta: l.eta,
       checkedBy: l.checkedBy ? { id: l.checkedBy.id, name: l.checkedBy.name } : null,
       checkedAt: l.checkedAt,
     })),
@@ -38,21 +39,17 @@ const itemInclude = {
 
 // Get the household's shopping list plus computed price-comparison plan
 router.get('/households/:householdId/cart', requireHouseholdMember, ah(async (req, res) => {
-  const [items, storeSettings] = await Promise.all([
-    prisma.cartItem.findMany({
-      where: { householdId: req.householdId },
-      include: itemInclude,
-      orderBy: { createdAt: 'asc' },
-    }),
-    prisma.storeSetting.findMany({ where: { householdId: req.householdId } }),
-  ]);
+  const items = await prisma.cartItem.findMany({
+    where: { householdId: req.householdId },
+    include: itemInclude,
+    orderBy: { createdAt: 'asc' },
+  });
 
   const serialized = items.map(serializeItem);
-  const { perStore, plan, unchecked, unavailableEverywhere } = computePlan(serialized, storeSettings);
+  const { perStore, plan, unchecked, unavailableEverywhere } = computePlan(serialized);
 
   res.json({
     items: serialized,
-    storeSettings,
     perStore,
     plan,
     unchecked,
@@ -233,6 +230,7 @@ router.post('/households/:householdId/cart/:itemId/refresh-price', requireHouseh
     }
     const price = Number(best.offer_price ?? best.mrp ?? 0);
     const inStock = !!best.available;
+    const eta = best.platform?.sla ? String(best.platform.sla) : null;
     if (isNaN(price)) {
       notFound.push(store);
       continue;
@@ -240,10 +238,10 @@ router.post('/households/:householdId/cart/:itemId/refresh-price', requireHouseh
     try {
       await prisma.itemListing.upsert({
         where: { itemId_store: { itemId: item.id, store } },
-        create: { itemId: item.id, store, price, inStock, source: 'LIVE_API', checkedById: req.userId },
-        update: { price, inStock, source: 'LIVE_API', checkedById: req.userId },
+        create: { itemId: item.id, store, price, inStock, eta, source: 'LIVE_API', checkedById: req.userId },
+        update: { price, inStock, eta, source: 'LIVE_API', checkedById: req.userId },
       });
-      updated.push({ store, price, inStock });
+      updated.push({ store, price, inStock, eta });
     } catch {
       notFound.push(store);
     }

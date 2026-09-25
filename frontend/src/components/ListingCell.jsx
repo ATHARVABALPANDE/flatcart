@@ -73,6 +73,7 @@ export default function ListingCell({ store, listing, onSave, onClear }) {
       {!listing && <span className="listing-unknown">add price</span>}
       {listing && listing.inStock && <span className="listing-price">₹{listing.price}</span>}
       {listing && !listing.inStock && <span className="listing-oos">out of stock</span>}
+      {listing?.eta && <span className="listing-eta">{listing.eta}</span>}
     </button>
   );
 }

@@ -219,6 +219,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .listing-unknown { color: var(--muted); }
 .listing-price { font-weight: 600; }
 .listing-oos { color: var(--danger); }
+.listing-eta { font-size: 11px; color: var(--muted); }
 .listing-cell input {
   padding: 6px 8px;
   border-radius: 6px;

@@ -51,9 +51,8 @@ model Household {
   longitude Float?
   pincode   String?
 
-  members       HouseholdMember[]
-  cartItems     CartItem[]
-  storeSettings StoreSetting[]
+  members   HouseholdMember[]
+  cartItems CartItem[]
 }
 
 model HouseholdMember {
@@ -95,6 +94,7 @@ model ItemListing {
   price   Float
   inStock Boolean @default(true)
   source  ListingSource @default(MANUAL)
+  eta     String? // delivery time estimate from the live-pricing API, e.g. "8 mins"
 
   checkedById String
   checkedAt   DateTime @updatedAt
@@ -103,16 +103,4 @@ model ItemListing {
   checkedBy User     @relation("CheckedBy", fields: [checkedById], references: [id])
 
   @@unique([itemId, store])
-}
-
-model StoreSetting {
-  id                   String @id @default(cuid())
-  householdId          String
-  store                Store
-  deliveryFee          Float  @default(25)
-  freeDeliveryThreshold Float @default(199)
-
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-
-  @@unique([householdId, store])
 }

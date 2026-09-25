@@ -13,11 +13,6 @@ function StoreCard({ storeStat }) {
         covers {storeStat.availableCount}/{storeStat.totalCoverable} items
         {short && ' (missing some)'}
       </div>
-      <div className={`store-card-line ${storeStat.qualifiesFreeDelivery ? 'ok' : 'muted'}`}>
-        {storeStat.qualifiesFreeDelivery
-          ? 'Free delivery'
-          : `₹${storeStat.deliveryFee} delivery fee`}
-      </div>
     </div>
   );
 }
@@ -46,9 +41,7 @@ export default function PlanSummary({ perStore, plan, unchecked, unavailableEver
               <div key={storePlan.store} className="plan-store-block" style={{ '--store-color': info.color }}>
                 <div className="plan-store-head">
                   <span className="plan-store-name">{info.label}</span>
-                  <span className="muted">
-                    ₹{storePlan.subtotal.toFixed(2)} + {storePlan.qualifiesFreeDelivery ? 'free delivery' : `₹${storePlan.deliveryFee} delivery`}
-                  </span>
+                  <span className="muted">₹{storePlan.subtotal.toFixed(2)}</span>
                   <button className="order-plan-btn" onClick={() => onOrderStore(storePlan.store, storePlan.items.map((i) => i.id))}>
                     Mark ordered from {info.label}
                   </button>

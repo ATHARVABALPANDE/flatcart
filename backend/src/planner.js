@@ -14,9 +14,7 @@ function subsets(arr) {
 }
 
 // items: [{ id, status, listings: [{ store, price, inStock }] }]
-// storeSettings: [{ store, deliveryFee, freeDeliveryThreshold }]
-export function computePlan(items, storeSettings) {
-  const settingsByStore = Object.fromEntries(storeSettings.map((s) => [s.store, s]));
+export function computePlan(items) {
   const pending = items.filter((i) => i.status === 'PENDING');
 
   const unchecked = [];
@@ -44,15 +42,12 @@ export function computePlan(items, storeSettings) {
       return sum + listing.price;
     }, 0);
     const missingItemIds = coverable.filter((item) => !available.includes(item)).map((i) => i.id);
-    const settings = settingsByStore[store] || { deliveryFee: 25, freeDeliveryThreshold: 199 };
     return {
       store,
       availableCount: available.length,
       totalCoverable: coverable.length,
       subtotal,
       missingItemIds,
-      qualifiesFreeDelivery: subtotal >= settings.freeDeliveryThreshold,
-      deliveryFee: subtotal >= settings.freeDeliveryThreshold ? 0 : settings.deliveryFee,
     };
   });
 
@@ -88,11 +83,8 @@ export function computePlan(items, storeSettings) {
     const storePlans = usedStores.map((store) => {
       const items = assignment[store];
       const subtotal = items.reduce((sum, i) => sum + i.price, 0);
-      const settings = settingsByStore[store] || { deliveryFee: 25, freeDeliveryThreshold: 199 };
-      const qualifiesFreeDelivery = subtotal >= settings.freeDeliveryThreshold;
-      const deliveryFee = qualifiesFreeDelivery ? 0 : settings.deliveryFee;
-      totalCost += subtotal + deliveryFee;
-      return { store, items, subtotal, deliveryFee, qualifiesFreeDelivery };
+      totalCost += subtotal;
+      return { store, items, subtotal };
     });
 
     const candidate = {
