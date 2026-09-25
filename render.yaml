@@ -1,0 +1,35 @@
+databases:
+  - name: flatcart-db
+    plan: free
+    databaseName: flatcart
+    user: flatcart
+
+services:
+  - type: web
+    name: flatcart-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: flatcart-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: https://flatcart-frontend.onrender.com
+
+  - type: web
+    name: flatcart-frontend
+    runtime: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://flatcart-backend.onrender.com/api
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
