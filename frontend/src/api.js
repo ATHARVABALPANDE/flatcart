@@ -57,4 +57,6 @@ export const api = {
     request(`/households/${householdId}/live-pricing`, { method: 'PATCH', body: patch }),
   refreshPrice: (householdId, itemId) =>
     request(`/households/${householdId}/cart/${itemId}/refresh-price`, { method: 'POST' }),
+
+  reverseGeocode: (lat, lon) => request(`/geocode/reverse?lat=${lat}&lon=${lon}`),
 };

@@ -4,6 +4,7 @@ import cors from 'cors';
 import authRoutes from './routes/auth.js';
 import householdRoutes from './routes/households.js';
 import cartRoutes from './routes/cart.js';
+import geocodeRoutes from './routes/geocode.js';
 
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled rejection:', err);
@@ -19,6 +20,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/households', householdRoutes);
 app.use('/api', cartRoutes);
+app.use('/api/geocode', geocodeRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
