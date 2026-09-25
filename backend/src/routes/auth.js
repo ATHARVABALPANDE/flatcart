@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
+import { ah } from '../asyncHandler.js';
 
 const router = Router();
 
@@ -14,7 +15,7 @@ function publicUser(user) {
   return { id: user.id, email: user.email, name: user.name };
 }
 
-router.post('/signup', async (req, res) => {
+router.post('/signup', ah(async (req, res) => {
   const { email, password, name } = req.body;
   if (!email || !password || !name) {
     return res.status(400).json({ error: 'email, password and name are required' });
@@ -32,9 +33,9 @@ router.post('/signup', async (req, res) => {
   });
 
   res.status(201).json({ token: signToken(user.id), user: publicUser(user) });
-});
+}));
 
-router.post('/login', async (req, res) => {
+router.post('/login', ah(async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'email and password are required' });
 
@@ -45,12 +46,12 @@ router.post('/login', async (req, res) => {
   if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
 
   res.json({ token: signToken(user.id), user: publicUser(user) });
-});
+}));
 
-router.get('/me', requireAuth, async (req, res) => {
+router.get('/me', requireAuth, ah(async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.userId } });
   if (!user) return res.status(404).json({ error: 'User not found' });
   res.json({ user: publicUser(user) });
-});
+}));
 
 export default router;

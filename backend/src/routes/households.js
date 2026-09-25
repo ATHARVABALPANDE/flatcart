@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { prisma } from '../db.js';
 import { requireAuth, requireHouseholdMember } from '../middleware/auth.js';
 import { STORES } from '../planner.js';
+import { ah } from '../asyncHandler.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -20,16 +21,16 @@ const DEFAULT_STORE_SETTINGS = {
 };
 
 // List households the current user belongs to
-router.get('/', async (req, res) => {
+router.get('/', ah(async (req, res) => {
   const memberships = await prisma.householdMember.findMany({
     where: { userId: req.userId },
     include: { household: true },
   });
   res.json({ households: memberships.map((m) => m.household) });
-});
+}));
 
 // Create a new household
-router.post('/', async (req, res) => {
+router.post('/', ah(async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: 'name is required' });
 
@@ -54,10 +55,10 @@ router.post('/', async (req, res) => {
   });
 
   res.status(201).json({ household });
-});
+}));
 
 // Join an existing household via invite code
-router.post('/join', async (req, res) => {
+router.post('/join', ah(async (req, res) => {
   const { inviteCode } = req.body;
   if (!inviteCode) return res.status(400).json({ error: 'inviteCode is required' });
 
@@ -76,10 +77,10 @@ router.post('/join', async (req, res) => {
   });
 
   res.status(201).json({ household });
-});
+}));
 
 // Get household details + members
-router.get('/:householdId', requireHouseholdMember, async (req, res) => {
+router.get('/:householdId', requireHouseholdMember, ah(async (req, res) => {
   const household = await prisma.household.findUnique({
     where: { id: req.householdId },
     include: { members: { include: { user: true } } },
@@ -100,10 +101,10 @@ router.get('/:householdId', requireHouseholdMember, async (req, res) => {
       })),
     },
   });
-});
+}));
 
 // Get delivery fee / free-delivery-threshold settings for each store
-router.get('/:householdId/store-settings', requireHouseholdMember, async (req, res) => {
+router.get('/:householdId/store-settings', requireHouseholdMember, ah(async (req, res) => {
   let settings = await prisma.storeSetting.findMany({ where: { householdId: req.householdId } });
   if (settings.length === 0) {
     // Household created before this feature existed - seed defaults now.
@@ -114,10 +115,10 @@ router.get('/:householdId/store-settings', requireHouseholdMember, async (req, r
     settings = await prisma.storeSetting.findMany({ where: { householdId: req.householdId } });
   }
   res.json({ storeSettings: settings });
-});
+}));
 
 // Update delivery fee / free-delivery-threshold for one store
-router.patch('/:householdId/store-settings/:store', requireHouseholdMember, async (req, res) => {
+router.patch('/:householdId/store-settings/:store', requireHouseholdMember, ah(async (req, res) => {
   const { store } = req.params;
   if (!STORES.includes(store)) {
     return res.status(400).json({ error: `store must be one of ${STORES.join(', ')}` });
@@ -134,6 +135,35 @@ router.patch('/:householdId/store-settings/:store', requireHouseholdMember, asyn
   });
 
   res.json({ storeSetting: setting });
-});
+}));
+
+// Get live-pricing integration status (never returns the API key itself)
+router.get('/:householdId/live-pricing', requireHouseholdMember, ah(async (req, res) => {
+  const household = await prisma.household.findUnique({ where: { id: req.householdId } });
+  res.json({
+    configured: !!household.qcApiKey,
+    latitude: household.latitude,
+    longitude: household.longitude,
+    pincode: household.pincode,
+  });
+}));
+
+// Set/update the live-pricing integration (quickcommerceapi.com API key + location)
+router.patch('/:householdId/live-pricing', requireHouseholdMember, ah(async (req, res) => {
+  const { apiKey, latitude, longitude, pincode } = req.body;
+  const data = {};
+  if (apiKey !== undefined) data.qcApiKey = apiKey || null;
+  if (latitude !== undefined) data.latitude = latitude;
+  if (longitude !== undefined) data.longitude = longitude;
+  if (pincode !== undefined) data.pincode = pincode || null;
+
+  const household = await prisma.household.update({ where: { id: req.householdId }, data });
+  res.json({
+    configured: !!household.qcApiKey,
+    latitude: household.latitude,
+    longitude: household.longitude,
+    pincode: household.pincode,
+  });
+}));
 
 export default router;

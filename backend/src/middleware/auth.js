@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { prisma } from '../db.js';
+import { ah } from '../asyncHandler.js';
 
 export function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
@@ -15,7 +16,7 @@ export function requireAuth(req, res, next) {
   }
 }
 
-export async function requireHouseholdMember(req, res, next) {
+export const requireHouseholdMember = ah(async (req, res, next) => {
   const householdId = req.params.householdId || req.body.householdId;
   if (!householdId) return res.status(400).json({ error: 'Missing householdId' });
 
@@ -26,4 +27,4 @@ export async function requireHouseholdMember(req, res, next) {
 
   req.householdId = householdId;
   next();
-}
+});

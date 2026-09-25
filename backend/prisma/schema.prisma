@@ -20,6 +20,11 @@ enum ItemStatus {
   ORDERED
 }
 
+enum ListingSource {
+  MANUAL
+  LIVE_API
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -38,6 +43,13 @@ model Household {
   name       String
   inviteCode String   @unique
   createdAt  DateTime @default(now())
+
+  // Optional live-pricing integration (quickcommerceapi.com) - a third-party
+  // paid API, not official store data. apiKey is never returned to clients.
+  qcApiKey  String?
+  latitude  Float?
+  longitude Float?
+  pincode   String?
 
   members       HouseholdMember[]
   cartItems     CartItem[]
@@ -82,6 +94,7 @@ model ItemListing {
   store   Store
   price   Float
   inStock Boolean @default(true)
+  source  ListingSource @default(MANUAL)
 
   checkedById String
   checkedAt   DateTime @updatedAt

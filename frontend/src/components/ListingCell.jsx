@@ -66,7 +66,10 @@ export default function ListingCell({ store, listing, onSave, onClear }) {
 
   return (
     <button type="button" className="listing-cell" style={{ '--store-color': info.color }} onClick={() => setEditing(true)}>
-      <span className="listing-store-label">{info.label}</span>
+      <span className="listing-store-label">
+        {info.label}
+        {listing?.source === 'LIVE_API' && <span title="Fetched via live pricing"> ⚡</span>}
+      </span>
       {!listing && <span className="listing-unknown">add price</span>}
       {listing && listing.inStock && <span className="listing-price">₹{listing.price}</span>}
       {listing && !listing.inStock && <span className="listing-oos">out of stock</span>}

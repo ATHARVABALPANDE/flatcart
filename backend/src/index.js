@@ -5,6 +5,10 @@ import authRoutes from './routes/auth.js';
 import householdRoutes from './routes/households.js';
 import cartRoutes from './routes/cart.js';
 
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection:', err);
+});
+
 const app = express();
 
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(',') || '*' }));

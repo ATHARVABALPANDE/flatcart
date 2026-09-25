@@ -6,6 +6,7 @@ import ItemRow from '../components/ItemRow.jsx';
 import AddItemForm from '../components/AddItemForm.jsx';
 import PlanSummary from '../components/PlanSummary.jsx';
 import StoreSettingsPanel from '../components/StoreSettingsPanel.jsx';
+import LivePricingPanel from '../components/LivePricingPanel.jsx';
 
 const POLL_MS = 5000;
 
@@ -17,6 +18,7 @@ export default function Cart() {
   const [household, setHousehold] = useState(null);
   const [list, setList] = useState(null);
   const [storeSettings, setStoreSettings] = useState(null);
+  const [livePricing, setLivePricing] = useState(null);
   const [error, setError] = useState('');
   const [showInvite, setShowInvite] = useState(false);
   const pollRef = useRef(null);
@@ -39,6 +41,15 @@ export default function Cart() {
     }
   }, [householdId]);
 
+  const loadLivePricing = useCallback(async () => {
+    try {
+      const data = await api.getLivePricingSettings(householdId);
+      setLivePricing(data);
+    } catch (err) {
+      setError(err.message);
+    }
+  }, [householdId]);
+
   useEffect(() => {
     api
       .getHousehold(householdId)
@@ -46,10 +57,11 @@ export default function Cart() {
       .catch((err) => setError(err.message));
     loadList();
     loadStoreSettings();
+    loadLivePricing();
 
     pollRef.current = setInterval(loadList, POLL_MS);
     return () => clearInterval(pollRef.current);
-  }, [householdId, loadList, loadStoreSettings]);
+  }, [householdId, loadList, loadStoreSettings, loadLivePricing]);
 
   async function handleAdd(item) {
     await api.addItem(householdId, item);
@@ -87,6 +99,17 @@ export default function Cart() {
     await api.updateStoreSetting(householdId, store, patch);
     loadStoreSettings();
     loadList();
+  }
+
+  async function handleUpdateLivePricing(patch) {
+    await api.updateLivePricingSettings(householdId, patch);
+    loadLivePricing();
+  }
+
+  async function handleRefreshPrice(item) {
+    const result = await api.refreshPrice(householdId, item.id);
+    loadList();
+    return result;
   }
 
   if (error) {
@@ -145,6 +168,8 @@ export default function Cart() {
                 onClearListing={handleClearListing}
                 onToggleOrdered={handleToggleOrdered}
                 onDelete={handleDelete}
+                onRefreshPrice={handleRefreshPrice}
+                liveConfigured={!!livePricing?.configured}
               />
             ))}
           </ul>
@@ -163,6 +188,7 @@ export default function Cart() {
       )}
 
       {storeSettings && <StoreSettingsPanel storeSettings={storeSettings} onUpdate={handleUpdateStoreSetting} />}
+      {livePricing && <LivePricingPanel settings={livePricing} onUpdate={handleUpdateLivePricing} />}
 
       {orderedItems.length > 0 && (
         <section className="cart-section">
