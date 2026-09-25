@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function AddItemForm({ store, onAdd }) {
+export default function AddItemForm({ onAdd }) {
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [note, setNote] = useState('');
@@ -11,7 +11,7 @@ export default function AddItemForm({ store, onAdd }) {
     if (!name.trim()) return;
     setBusy(true);
     try {
-      await onAdd({ name: name.trim(), quantity: quantity.trim() || '1', note: note.trim() || undefined, store });
+      await onAdd({ name: name.trim(), quantity: quantity.trim() || '1', note: note.trim() || undefined });
       setName('');
       setQuantity('1');
       setNote('');

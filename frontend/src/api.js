@@ -37,10 +37,18 @@ export const api = {
   joinHousehold: (inviteCode) => request('/households/join', { method: 'POST', body: { inviteCode } }),
   getHousehold: (id) => request(`/households/${id}`),
 
-  getCart: (householdId) => request(`/households/${householdId}/cart`),
+  getList: (householdId) => request(`/households/${householdId}/cart`),
   addItem: (householdId, item) => request(`/households/${householdId}/cart`, { method: 'POST', body: item }),
   updateItem: (itemId, patch) => request(`/cart/${itemId}`, { method: 'PATCH', body: patch }),
   deleteItem: (itemId) => request(`/cart/${itemId}`, { method: 'DELETE' }),
-  orderStore: (householdId, store) =>
-    request(`/households/${householdId}/cart/order-store`, { method: 'PATCH', body: { store } }),
+  orderItems: (householdId, store, itemIds) =>
+    request(`/households/${householdId}/cart/order`, { method: 'POST', body: { store, itemIds } }),
+
+  setListing: (itemId, store, { price, inStock }) =>
+    request(`/cart/${itemId}/listings/${store}`, { method: 'PUT', body: { price, inStock } }),
+  clearListing: (itemId, store) => request(`/cart/${itemId}/listings/${store}`, { method: 'DELETE' }),
+
+  getStoreSettings: (householdId) => request(`/households/${householdId}/store-settings`),
+  updateStoreSetting: (householdId, store, patch) =>
+    request(`/households/${householdId}/store-settings/${store}`, { method: 'PATCH', body: patch }),
 };

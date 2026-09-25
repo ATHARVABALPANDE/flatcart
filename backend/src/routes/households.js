@@ -2,6 +2,7 @@ import { Router } from 'express';
 import crypto from 'crypto';
 import { prisma } from '../db.js';
 import { requireAuth, requireHouseholdMember } from '../middleware/auth.js';
+import { STORES } from '../planner.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -9,6 +10,14 @@ router.use(requireAuth);
 function generateInviteCode() {
   return crypto.randomBytes(4).toString('hex').toUpperCase();
 }
+
+// Rough, editable defaults - actual thresholds vary by city and change often.
+const DEFAULT_STORE_SETTINGS = {
+  BLINKIT: { deliveryFee: 25, freeDeliveryThreshold: 199 },
+  ZEPTO: { deliveryFee: 25, freeDeliveryThreshold: 149 },
+  INSTAMART: { deliveryFee: 30, freeDeliveryThreshold: 199 },
+  BIGBASKET: { deliveryFee: 30, freeDeliveryThreshold: 600 },
+};
 
 // List households the current user belongs to
 router.get('/', async (req, res) => {
@@ -38,6 +47,9 @@ router.post('/', async (req, res) => {
       name,
       inviteCode,
       members: { create: { userId: req.userId } },
+      storeSettings: {
+        create: STORES.map((store) => ({ store, ...DEFAULT_STORE_SETTINGS[store] })),
+      },
     },
   });
 
@@ -88,6 +100,40 @@ router.get('/:householdId', requireHouseholdMember, async (req, res) => {
       })),
     },
   });
+});
+
+// Get delivery fee / free-delivery-threshold settings for each store
+router.get('/:householdId/store-settings', requireHouseholdMember, async (req, res) => {
+  let settings = await prisma.storeSetting.findMany({ where: { householdId: req.householdId } });
+  if (settings.length === 0) {
+    // Household created before this feature existed - seed defaults now.
+    await prisma.storeSetting.createMany({
+      data: STORES.map((store) => ({ householdId: req.householdId, store, ...DEFAULT_STORE_SETTINGS[store] })),
+      skipDuplicates: true,
+    });
+    settings = await prisma.storeSetting.findMany({ where: { householdId: req.householdId } });
+  }
+  res.json({ storeSettings: settings });
+});
+
+// Update delivery fee / free-delivery-threshold for one store
+router.patch('/:householdId/store-settings/:store', requireHouseholdMember, async (req, res) => {
+  const { store } = req.params;
+  if (!STORES.includes(store)) {
+    return res.status(400).json({ error: `store must be one of ${STORES.join(', ')}` });
+  }
+  const { deliveryFee, freeDeliveryThreshold } = req.body;
+  const data = {};
+  if (deliveryFee !== undefined) data.deliveryFee = deliveryFee;
+  if (freeDeliveryThreshold !== undefined) data.freeDeliveryThreshold = freeDeliveryThreshold;
+
+  const setting = await prisma.storeSetting.upsert({
+    where: { householdId_store: { householdId: req.householdId, store } },
+    create: { householdId: req.householdId, store, ...DEFAULT_STORE_SETTINGS[store], ...data },
+    update: data,
+  });
+
+  res.json({ storeSetting: setting });
 });
 
 export default router;

@@ -26,14 +26,8 @@ export const STORES = [
     color: '#84c225',
     searchUrl: (q) => `https://www.bigbasket.com/ps/?q=${encodeURIComponent(q)}`,
   },
-  {
-    key: 'OTHER',
-    label: 'Other',
-    color: '#94a3b8',
-    searchUrl: null,
-  },
 ];
 
 export function storeInfo(key) {
-  return STORES.find((s) => s.key === key) || STORES[STORES.length - 1];
+  return STORES.find((s) => s.key === key) || STORES[0];
 }

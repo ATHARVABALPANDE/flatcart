@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../AuthContext.jsx';
-import { STORES } from '../stores.js';
 import ItemRow from '../components/ItemRow.jsx';
 import AddItemForm from '../components/AddItemForm.jsx';
+import PlanSummary from '../components/PlanSummary.jsx';
+import StoreSettingsPanel from '../components/StoreSettingsPanel.jsx';
 
 const POLL_MS = 5000;
 
@@ -14,16 +15,25 @@ export default function Cart() {
   const navigate = useNavigate();
 
   const [household, setHousehold] = useState(null);
-  const [items, setItems] = useState(null);
-  const [activeStore, setActiveStore] = useState(STORES[0].key);
+  const [list, setList] = useState(null);
+  const [storeSettings, setStoreSettings] = useState(null);
   const [error, setError] = useState('');
   const [showInvite, setShowInvite] = useState(false);
   const pollRef = useRef(null);
 
-  const loadCart = useCallback(async () => {
+  const loadList = useCallback(async () => {
     try {
-      const data = await api.getCart(householdId);
-      setItems(data.items);
+      const data = await api.getList(householdId);
+      setList(data);
+    } catch (err) {
+      setError(err.message);
+    }
+  }, [householdId]);
+
+  const loadStoreSettings = useCallback(async () => {
+    try {
+      const data = await api.getStoreSettings(householdId);
+      setStoreSettings(data.storeSettings);
     } catch (err) {
       setError(err.message);
     }
@@ -34,34 +44,49 @@ export default function Cart() {
       .getHousehold(householdId)
       .then((data) => setHousehold(data.household))
       .catch((err) => setError(err.message));
-    loadCart();
+    loadList();
+    loadStoreSettings();
 
-    pollRef.current = setInterval(loadCart, POLL_MS);
+    pollRef.current = setInterval(loadList, POLL_MS);
     return () => clearInterval(pollRef.current);
-  }, [householdId, loadCart]);
+  }, [householdId, loadList, loadStoreSettings]);
 
   async function handleAdd(item) {
     await api.addItem(householdId, item);
-    loadCart();
+    loadList();
+  }
+
+  async function handleSaveListing(item, store, data) {
+    await api.setListing(item.id, store, data);
+    loadList();
+  }
+
+  async function handleClearListing(item, store) {
+    await api.clearListing(item.id, store);
+    loadList();
   }
 
   async function handleToggleOrdered(item) {
     const nextStatus = item.status === 'ORDERED' ? 'PENDING' : 'ORDERED';
     await api.updateItem(item.id, { status: nextStatus });
-    loadCart();
+    loadList();
   }
 
   async function handleDelete(item) {
     await api.deleteItem(item.id);
-    loadCart();
+    loadList();
   }
 
-  async function handleOrderStore(storeKey) {
-    const list = items?.[storeKey] || [];
-    const pendingCount = list.filter((i) => i.status === 'PENDING').length;
-    if (pendingCount === 0) return;
-    await api.orderStore(householdId, storeKey);
-    loadCart();
+  async function handleOrderStore(store, itemIds) {
+    if (itemIds.length === 0) return;
+    await api.orderItems(householdId, store, itemIds);
+    loadList();
+  }
+
+  async function handleUpdateStoreSetting(store, patch) {
+    await api.updateStoreSetting(householdId, store, patch);
+    loadStoreSettings();
+    loadList();
   }
 
   if (error) {
@@ -73,8 +98,8 @@ export default function Cart() {
     );
   }
 
-  const activeItems = items?.[activeStore] || [];
-  const pendingCount = activeItems.filter((i) => i.status === 'PENDING').length;
+  const pendingItems = list?.items.filter((i) => i.status === 'PENDING') || [];
+  const orderedItems = list?.items.filter((i) => i.status === 'ORDERED') || [];
 
   return (
     <div className="page">
@@ -102,47 +127,60 @@ export default function Cart() {
         </div>
       )}
 
-      <nav className="tabs">
-        {STORES.map((s) => {
-          const count = items?.[s.key]?.filter((i) => i.status === 'PENDING').length || 0;
-          return (
-            <button
-              key={s.key}
-              className={`tab ${activeStore === s.key ? 'active' : ''}`}
-              style={{ '--tab-color': s.color }}
-              onClick={() => setActiveStore(s.key)}
-            >
-              {s.label} {count > 0 && <span className="badge">{count}</span>}
-            </button>
-          );
-        })}
-      </nav>
-
       <section className="cart-section">
-        <AddItemForm store={activeStore} onAdd={handleAdd} />
+        <h2>Shopping list</h2>
+        <AddItemForm onAdd={handleAdd} />
 
-        {items === null ? (
-          <p className="muted">Loading cart...</p>
-        ) : activeItems.length === 0 ? (
-          <p className="muted">No items yet for this store.</p>
+        {list === null ? (
+          <p className="muted">Loading list...</p>
+        ) : pendingItems.length === 0 ? (
+          <p className="muted">No items yet. Add what you need above.</p>
         ) : (
           <ul className="item-list">
-            {activeItems.map((item) => (
-              <ItemRow key={item.id} item={item} onToggleOrdered={handleToggleOrdered} onDelete={handleDelete} />
+            {pendingItems.map((item) => (
+              <ItemRow
+                key={item.id}
+                item={item}
+                onSaveListing={handleSaveListing}
+                onClearListing={handleClearListing}
+                onToggleOrdered={handleToggleOrdered}
+                onDelete={handleDelete}
+              />
             ))}
           </ul>
         )}
-
-        {activeItems.length > 0 && (
-          <button
-            className="order-btn"
-            disabled={pendingCount === 0}
-            onClick={() => handleOrderStore(activeStore)}
-          >
-            Mark all {pendingCount} pending item{pendingCount === 1 ? '' : 's'} as ordered
-          </button>
-        )}
       </section>
+
+      {list && list.items.length > 0 && (
+        <PlanSummary
+          perStore={list.perStore}
+          plan={list.plan}
+          unchecked={list.unchecked}
+          unavailableEverywhere={list.unavailableEverywhere}
+          items={list.items}
+          onOrderStore={handleOrderStore}
+        />
+      )}
+
+      {storeSettings && <StoreSettingsPanel storeSettings={storeSettings} onUpdate={handleUpdateStoreSetting} />}
+
+      {orderedItems.length > 0 && (
+        <section className="cart-section">
+          <h2>Already ordered</h2>
+          <ul className="item-list">
+            {orderedItems.map((item) => (
+              <ItemRow
+                key={item.id}
+                item={item}
+                onSaveListing={handleSaveListing}
+                onClearListing={handleClearListing}
+                onToggleOrdered={handleToggleOrdered}
+                onDelete={handleDelete}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

@@ -13,7 +13,6 @@ enum Store {
   ZEPTO
   INSTAMART
   BIGBASKET
-  OTHER
 }
 
 enum ItemStatus {
@@ -28,9 +27,10 @@ model User {
   name         String
   createdAt    DateTime @default(now())
 
-  memberships   HouseholdMember[]
-  itemsAdded    CartItem[]        @relation("AddedBy")
-  itemsOrdered  CartItem[]        @relation("OrderedBy")
+  memberships    HouseholdMember[]
+  itemsAdded     CartItem[]     @relation("AddedBy")
+  itemsOrdered   CartItem[]     @relation("OrderedBy")
+  listingsChecked ItemListing[] @relation("CheckedBy")
 }
 
 model Household {
@@ -39,8 +39,9 @@ model Household {
   inviteCode String   @unique
   createdAt  DateTime @default(now())
 
-  members   HouseholdMember[]
-  cartItems CartItem[]
+  members       HouseholdMember[]
+  cartItems     CartItem[]
+  storeSettings StoreSetting[]
 }
 
 model HouseholdMember {
@@ -60,16 +61,45 @@ model CartItem {
   householdId String
   name        String
   quantity    String     @default("1")
-  store       Store      @default(OTHER)
   note        String?
   status      ItemStatus @default(PENDING)
 
-  addedById   String
-  orderedById String?
-  orderedAt   DateTime?
-  createdAt   DateTime   @default(now())
+  orderedStore Store?
+  addedById    String
+  orderedById  String?
+  orderedAt    DateTime?
+  createdAt    DateTime @default(now())
+
+  household Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  addedBy   User          @relation("AddedBy", fields: [addedById], references: [id])
+  orderedBy User?         @relation("OrderedBy", fields: [orderedById], references: [id])
+  listings  ItemListing[]
+}
+
+model ItemListing {
+  id      String @id @default(cuid())
+  itemId  String
+  store   Store
+  price   Float
+  inStock Boolean @default(true)
+
+  checkedById String
+  checkedAt   DateTime @updatedAt
+
+  item      CartItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  checkedBy User     @relation("CheckedBy", fields: [checkedById], references: [id])
+
+  @@unique([itemId, store])
+}
+
+model StoreSetting {
+  id                   String @id @default(cuid())
+  householdId          String
+  store                Store
+  deliveryFee          Float  @default(25)
+  freeDeliveryThreshold Float @default(199)
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  addedBy   User      @relation("AddedBy", fields: [addedById], references: [id])
-  orderedBy User?     @relation("OrderedBy", fields: [orderedById], references: [id])
+
+  @@unique([householdId, store])
 }

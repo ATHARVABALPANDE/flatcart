@@ -1,14 +1,15 @@
 # FlatCart
 
-A shared shopping cart for flatmates. Everyone in the flat adds items they need,
-grouped by which quick-commerce store they'd come from (Blinkit, Zepto, Instamart,
-BigBasket, or Other). Whoever's placing an order opens the "Open in Blinkit/Zepto/..."
-link for each item (jumps straight to that item's search on the store's site), adds it
-in the real app, then marks the store's list as ordered so everyone sees it's done.
+A shared shopping list for flatmates. Everyone adds the items they need, and whenever
+someone checks Blinkit/Zepto/Instamart/BigBasket, they type in the price and in-stock
+status they see for each item. The app uses that crowd-sourced pricing to show, per
+store, how much a full order would cost and which items it's missing, then suggests the
+cheapest way to cover everything in the fewest stores (factoring in each store's
+delivery fee and free-delivery threshold, which are editable per household).
 
-Note: Blinkit/Zepto/etc. don't provide public APIs for adding items to a cart or
-placing orders, so this app can't place the order automatically — it just makes the
-manual process fast and keeps everyone in sync on who needs what.
+Note: Blinkit/Zepto/etc. don't provide public APIs for prices, stock, or placing
+orders, so none of this is automated — it's a way to combine what everyone has already
+seen while browsing, and make it fast to actually place the order in the real app.
 
 ## Structure
 
