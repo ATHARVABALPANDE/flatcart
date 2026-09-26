@@ -6,6 +6,7 @@ import ItemRow from '../components/ItemRow.jsx';
 import AddItemForm from '../components/AddItemForm.jsx';
 import PlanSummary from '../components/PlanSummary.jsx';
 import LivePricingPanel from '../components/LivePricingPanel.jsx';
+import StickyOrderBar from '../components/StickyOrderBar.jsx';
 
 const POLL_MS = 5000;
 
@@ -160,13 +161,15 @@ export default function Cart() {
       </section>
 
       {list && pendingItems.length > 0 && (
-        <PlanSummary
-          plan={list.plan}
-          unchecked={list.unchecked}
-          unavailableEverywhere={list.unavailableEverywhere}
-          items={list.items}
-          onOrderStore={handleOrderStore}
-        />
+        <div id="recommended-order">
+          <PlanSummary
+            plan={list.plan}
+            unchecked={list.unchecked}
+            unavailableEverywhere={list.unavailableEverywhere}
+            items={list.items}
+            onOrderStore={handleOrderStore}
+          />
+        </div>
       )}
 
       {livePricing && <LivePricingPanel settings={livePricing} onUpdate={handleUpdateLivePricing} />}
@@ -192,6 +195,8 @@ export default function Cart() {
           )}
         </section>
       )}
+
+      <StickyOrderBar pendingCount={pendingItems.length} plan={list?.plan} />
     </div>
   );
 }
