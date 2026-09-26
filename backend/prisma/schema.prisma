@@ -95,6 +95,7 @@ model ItemListing {
   inStock Boolean @default(true)
   source  ListingSource @default(MANUAL)
   eta     String? // delivery time estimate from the live-pricing API, e.g. "8 mins"
+  packSize String? // what this price is actually for, e.g. "1 pc", "45 pcs", "500 ml"
 
   checkedById String
   checkedAt   DateTime @updatedAt

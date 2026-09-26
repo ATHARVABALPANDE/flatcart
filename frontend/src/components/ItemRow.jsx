@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { STORES, storeInfo } from '../stores.js';
 import ListingCell from './ListingCell.jsx';
+import { packSizesMismatched } from '../quantity.js';
 
 export default function ItemRow({ item, onSaveListing, onClearListing, onToggleOrdered, onDelete, onRefreshPrice, liveConfigured }) {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState('');
   const isOrdered = item.status === 'ORDERED';
   const listingByStore = Object.fromEntries(item.listings.map((l) => [l.store, l]));
+  const mismatched = !isOrdered && packSizesMismatched(item.listings);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -58,6 +60,11 @@ export default function ItemRow({ item, onSaveListing, onClearListing, onToggleO
       </div>
 
       {refreshMsg && <div className="item-meta muted">{refreshMsg}</div>}
+      {mismatched && (
+        <div className="item-meta warning">
+          ⚠ These are different pack sizes — compare the ≈₹/unit price below, not the raw price.
+        </div>
+      )}
 
       {!isOrdered && (
         <div className="listing-grid">

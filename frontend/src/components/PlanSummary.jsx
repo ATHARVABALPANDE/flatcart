@@ -48,7 +48,10 @@ export default function PlanSummary({ perStore, plan, unchecked, unavailableEver
                 </div>
                 <ul className="plan-item-list muted">
                   {storePlan.items.map((i) => (
-                    <li key={i.id}>{i.name} &middot; ₹{i.price}</li>
+                    <li key={i.id}>
+                      {i.name} &middot; ₹{i.price}
+                      {i.packSize && ` (${i.packSize})`}
+                    </li>
                   ))}
                 </ul>
               </div>

@@ -179,6 +179,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .item-qty { font-size: 12px; color: var(--muted); }
 .item-note { font-size: 12px; color: var(--muted); font-style: italic; }
 .item-meta { flex-basis: 100%; font-size: 12px; }
+.item-meta.warning { color: var(--danger); }
 .item-actions { margin-left: auto; }
 
 .listing-grid {
@@ -220,6 +221,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .listing-price { font-weight: 600; }
 .listing-oos { color: var(--danger); }
 .listing-eta { font-size: 11px; color: var(--muted); }
+.listing-packsize { font-size: 11px; color: var(--muted); }
+.listing-perunit { font-size: 11px; color: var(--accent); font-weight: 600; }
 .listing-cell input {
   padding: 6px 8px;
   border-radius: 6px;

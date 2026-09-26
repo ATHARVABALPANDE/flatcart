@@ -3,6 +3,7 @@ import { prisma } from '../db.js';
 import { requireAuth, requireHouseholdMember } from '../middleware/auth.js';
 import { computePlan, STORES } from '../planner.js';
 import { ah } from '../asyncHandler.js';
+import { parseLeadingCount } from '../quantity.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -25,6 +26,7 @@ function serializeItem(item) {
       inStock: l.inStock,
       source: l.source,
       eta: l.eta,
+      packSize: l.packSize,
       checkedBy: l.checkedBy ? { id: l.checkedBy.id, name: l.checkedBy.name } : null,
       checkedAt: l.checkedAt,
     })),
@@ -141,7 +143,7 @@ router.delete('/cart/:itemId', loadItemAndCheckMembership, ah(async (req, res) =
 // Upsert the price/stock a flatmate has seen for an item at a given store
 router.put('/cart/:itemId/listings/:store', loadItemAndCheckMembership, ah(async (req, res) => {
   const { store } = req.params;
-  const { price, inStock } = req.body;
+  const { price, inStock, packSize } = req.body;
   if (!STORES.includes(store)) {
     return res.status(400).json({ error: `store must be one of ${STORES.join(', ')}` });
   }
@@ -156,12 +158,14 @@ router.put('/cart/:itemId/listings/:store', loadItemAndCheckMembership, ah(async
       store,
       price: inStock ? price : 0,
       inStock: !!inStock,
+      packSize: packSize || null,
       source: 'MANUAL',
       checkedById: req.userId,
     },
     update: {
       price: inStock ? price : 0,
       inStock: !!inStock,
+      packSize: packSize || null,
       source: 'MANUAL',
       checkedById: req.userId,
     },
@@ -174,6 +178,7 @@ router.put('/cart/:itemId/listings/:store', loadItemAndCheckMembership, ah(async
       price: listing.price,
       inStock: listing.inStock,
       source: listing.source,
+      packSize: listing.packSize,
       checkedBy: { id: listing.checkedBy.id, name: listing.checkedBy.name },
       checkedAt: listing.checkedAt,
     },
@@ -222,15 +227,30 @@ router.post('/households/:householdId/cart/:itemId/refresh-price', requireHouseh
   const notFound = [];
 
   for (const [platform, store] of Object.entries(QC_PLATFORM_TO_STORE)) {
-    const matches = results[platform];
-    const best = Array.isArray(matches) && matches.length > 0 ? matches[0] : null;
-    if (!best) {
+    const matches = Array.isArray(results[platform]) ? results[platform] : [];
+    if (matches.length === 0) {
       notFound.push(store);
       continue;
     }
+
+    // Search results aren't sorted by pack size, and the first hit is often a
+    // bulk pack (e.g. "45 pcs") rather than a single unit - prefer whichever
+    // candidate has the smallest parsed quantity, since that's what most
+    // shopping-list items mean by default.
+    let best = matches[0];
+    let bestCount = parseLeadingCount(best.quantity) ?? Infinity;
+    for (const candidate of matches.slice(1)) {
+      const count = parseLeadingCount(candidate.quantity);
+      if (count !== null && count < bestCount) {
+        best = candidate;
+        bestCount = count;
+      }
+    }
+
     const price = Number(best.offer_price ?? best.mrp ?? 0);
     const inStock = !!best.available;
     const eta = best.platform?.sla ? String(best.platform.sla) : null;
+    const packSize = best.quantity ? String(best.quantity) : null;
     if (isNaN(price)) {
       notFound.push(store);
       continue;
@@ -238,10 +258,10 @@ router.post('/households/:householdId/cart/:itemId/refresh-price', requireHouseh
     try {
       await prisma.itemListing.upsert({
         where: { itemId_store: { itemId: item.id, store } },
-        create: { itemId: item.id, store, price, inStock, eta, source: 'LIVE_API', checkedById: req.userId },
-        update: { price, inStock, eta, source: 'LIVE_API', checkedById: req.userId },
+        create: { itemId: item.id, store, price, inStock, eta, packSize, source: 'LIVE_API', checkedById: req.userId },
+        update: { price, inStock, eta, packSize, source: 'LIVE_API', checkedById: req.userId },
       });
-      updated.push({ store, price, inStock, eta });
+      updated.push({ store, price, inStock, eta, packSize });
     } catch {
       notFound.push(store);
     }

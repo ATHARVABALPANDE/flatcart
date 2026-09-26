@@ -71,8 +71,9 @@ export function computePlan(items) {
       }
       if (bestStore) {
         coveredCount++;
+        const listing = item.listings.find((l) => l.store === bestStore && l.inStock);
         if (!assignment[bestStore]) assignment[bestStore] = [];
-        assignment[bestStore].push({ id: item.id, name: item.name, price: bestPrice });
+        assignment[bestStore].push({ id: item.id, name: item.name, price: bestPrice, packSize: listing?.packSize ?? null });
       }
     }
 
