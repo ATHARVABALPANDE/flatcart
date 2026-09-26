@@ -6,6 +6,7 @@ import ItemRow from '../components/ItemRow.jsx';
 import AddItemForm from '../components/AddItemForm.jsx';
 import PlanSummary from '../components/PlanSummary.jsx';
 import LivePricingPanel from '../components/LivePricingPanel.jsx';
+import HouseholdPanel from '../components/HouseholdPanel.jsx';
 import StickyOrderBar from '../components/StickyOrderBar.jsx';
 
 const POLL_MS = 5000;
@@ -19,7 +20,6 @@ export default function Cart() {
   const [list, setList] = useState(null);
   const [livePricing, setLivePricing] = useState(null);
   const [error, setError] = useState('');
-  const [showInvite, setShowInvite] = useState(false);
   const [showOrdered, setShowOrdered] = useState(false);
   const [pricing, setPricing] = useState(false);
   const [priceMsg, setPriceMsg] = useState('');
@@ -93,6 +93,16 @@ export default function Cart() {
     loadLivePricing();
   }
 
+  async function handleLeave() {
+    await api.leaveHousehold(householdId);
+    navigate('/');
+  }
+
+  async function handleDeleteHousehold(confirmName) {
+    await api.deleteHousehold(householdId, confirmName);
+    navigate('/');
+  }
+
   async function handleRefreshPrice(item, force) {
     const result = await api.refreshPrice(householdId, item.id, force);
     if (!result.skipped) loadList();
@@ -154,17 +164,15 @@ export default function Cart() {
         </div>
       </header>
 
-      {household && (
-        <div className="invite-bar">
-          <button className="link" onClick={() => setShowInvite((v) => !v)}>
-            {showInvite ? 'Hide invite code' : 'Show invite code'}
-          </button>
-          {showInvite && (
-            <span className="invite-code">
-              Share this code with flatmates: <strong>{household.inviteCode}</strong>
-            </span>
-          )}
-        </div>
+      {household && livePricing && (
+        <HouseholdPanel
+          household={household}
+          currentUserId={user?.id}
+          location={livePricing}
+          onSaveLocation={handleUpdateLivePricing}
+          onLeave={handleLeave}
+          onDelete={handleDeleteHousehold}
+        />
       )}
 
       <section className="cart-section">

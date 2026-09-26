@@ -36,6 +36,8 @@ export const api = {
   createHousehold: (name) => request('/households', { method: 'POST', body: { name } }),
   joinHousehold: (inviteCode) => request('/households/join', { method: 'POST', body: { inviteCode } }),
   getHousehold: (id) => request(`/households/${id}`),
+  deleteHousehold: (id, confirmName) => request(`/households/${id}`, { method: 'DELETE', body: { confirmName } }),
+  leaveHousehold: (id) => request(`/households/${id}/leave`, { method: 'POST' }),
 
   getList: (householdId) => request(`/households/${householdId}/cart`),
   addItem: (householdId, item) => request(`/households/${householdId}/cart`, { method: 'POST', body: item }),

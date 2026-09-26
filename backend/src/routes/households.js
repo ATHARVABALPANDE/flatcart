@@ -38,6 +38,7 @@ router.post('/', ah(async (req, res) => {
     data: {
       name,
       inviteCode,
+      createdById: req.userId,
       members: { create: { userId: req.userId } },
     },
   });
@@ -81,14 +82,65 @@ router.get('/:householdId', requireHouseholdMember, ah(async (req, res) => {
       name: household.name,
       inviteCode: household.inviteCode,
       createdAt: household.createdAt,
-      members: household.members.map((m) => ({
-        id: m.user.id,
-        name: m.user.name,
-        email: m.user.email,
-        joinedAt: m.joinedAt,
-      })),
+      createdById: household.createdById,
+      members: household.members
+        .slice()
+        .sort((a, b) => a.joinedAt - b.joinedAt)
+        .map((m) => ({
+          id: m.user.id,
+          name: m.user.name,
+          email: m.user.email,
+          joinedAt: m.joinedAt,
+        })),
     },
   });
+}));
+
+// Delete a household and everything in it. Restricted to whoever created it -
+// every other member would otherwise be able to destroy the shared list - and
+// the exact name has to be echoed back, since this cannot be undone.
+router.delete('/:householdId', requireHouseholdMember, ah(async (req, res) => {
+  const household = await prisma.household.findUnique({ where: { id: req.householdId } });
+  if (!household) return res.status(404).json({ error: 'Household not found' });
+
+  if (household.createdById !== req.userId) {
+    return res.status(403).json({ error: 'Only the flatmate who created this household can delete it. You can leave it instead.' });
+  }
+  if (req.body?.confirmName !== household.name) {
+    return res.status(400).json({ error: 'Type the household name exactly to confirm deletion' });
+  }
+
+  await prisma.household.delete({ where: { id: req.householdId } });
+  res.status(204).end();
+}));
+
+// Leave a household. The last one out turns the lights off; a departing
+// creator hands the household to whoever joined earliest after them, so it
+// never ends up with members but nobody able to delete it.
+router.post('/:householdId/leave', requireHouseholdMember, ah(async (req, res) => {
+  await prisma.householdMember.delete({
+    where: { userId_householdId: { userId: req.userId, householdId: req.householdId } },
+  });
+
+  const remaining = await prisma.householdMember.findMany({
+    where: { householdId: req.householdId },
+    orderBy: { joinedAt: 'asc' },
+  });
+
+  if (remaining.length === 0) {
+    await prisma.household.delete({ where: { id: req.householdId } });
+    return res.json({ deleted: true });
+  }
+
+  const household = await prisma.household.findUnique({ where: { id: req.householdId } });
+  if (household.createdById === req.userId) {
+    await prisma.household.update({
+      where: { id: req.householdId },
+      data: { createdById: remaining[0].userId },
+    });
+  }
+
+  res.json({ deleted: false });
 }));
 
 // Get live-pricing integration status (never returns the API key itself)

@@ -33,6 +33,7 @@ model User {
   createdAt    DateTime @default(now())
 
   memberships    HouseholdMember[]
+  householdsCreated Household[]  @relation("HouseholdCreator")
   itemsAdded     CartItem[]     @relation("AddedBy")
   itemsOrdered   CartItem[]     @relation("OrderedBy")
   listingsChecked ItemListing[] @relation("CheckedBy")
@@ -43,6 +44,12 @@ model Household {
   name       String
   inviteCode String   @unique
   createdAt  DateTime @default(now())
+
+  // Who may delete the whole household. Nullable because households created
+  // before this existed were backfilled to their earliest member, and because
+  // the creator leaving hands it to whoever joined next.
+  createdById String?
+  createdBy   User?   @relation("HouseholdCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   // Optional live-pricing integration (quickcommerceapi.com) - a third-party
   // paid API, not official store data. apiKey is never returned to clients.
