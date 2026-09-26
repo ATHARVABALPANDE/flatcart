@@ -49,8 +49,8 @@ export default function PlanSummary({ perStore, plan, unchecked, unavailableEver
                 <ul className="plan-item-list muted">
                   {storePlan.items.map((i) => (
                     <li key={i.id}>
-                      {i.name} &middot; ₹{i.price}
-                      {i.packSize && ` (${i.packSize})`}
+                      {i.name} &middot; {i.packsNeeded > 1 ? `${i.packsNeeded}× ` : ''}
+                      {i.packSize} {i.packsNeeded > 1 ? `@ ₹${i.unitPrice} ` : ''}= ₹{i.price.toFixed(2)}
                     </li>
                   ))}
                 </ul>

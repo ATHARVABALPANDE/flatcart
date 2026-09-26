@@ -5,6 +5,10 @@ import { computePlan, STORES } from '../planner.js';
 import { ah } from '../asyncHandler.js';
 import { parseLeadingCount } from '../quantity.js';
 
+const DEFAULT_PACK_SIZE = '1 unit';
+const REFRESH_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6h - avoid re-spending credits on prices that haven't had time to change
+const MAX_PACK_VARIANTS_PER_STORE = 3; // cap rows captured per store per refresh, so a search with many hits doesn't create clutter
+
 const router = Router();
 router.use(requireAuth);
 
@@ -142,10 +146,14 @@ router.delete('/cart/:itemId', loadItemAndCheckMembership, ah(async (req, res) =
   res.status(204).end();
 }));
 
-// Upsert the price/stock a flatmate has seen for an item at a given store
+// Add or update one pack-size option a flatmate has seen for an item at a
+// given store. A store can have several of these (e.g. "1 pc" and "3 pcs
+// pack" as separate rows) so the plan can compare buying them individually
+// vs. in bulk - which row this touches is picked by (store, packSize).
 router.put('/cart/:itemId/listings/:store', loadItemAndCheckMembership, ah(async (req, res) => {
   const { store } = req.params;
-  const { price, inStock, packSize, matchedName } = req.body;
+  const { price, inStock, matchedName } = req.body;
+  const packSize = (req.body.packSize && req.body.packSize.trim()) || DEFAULT_PACK_SIZE;
   if (!STORES.includes(store)) {
     return res.status(400).json({ error: `store must be one of ${STORES.join(', ')}` });
   }
@@ -154,13 +162,13 @@ router.put('/cart/:itemId/listings/:store', loadItemAndCheckMembership, ah(async
   }
 
   const listing = await prisma.itemListing.upsert({
-    where: { itemId_store: { itemId: req.params.itemId, store } },
+    where: { itemId_store_packSize: { itemId: req.params.itemId, store, packSize } },
     create: {
       itemId: req.params.itemId,
       store,
+      packSize,
       price: inStock ? price : 0,
       inStock: !!inStock,
-      packSize: packSize || null,
       matchedName: matchedName || null,
       source: 'MANUAL',
       checkedById: req.userId,
@@ -168,7 +176,6 @@ router.put('/cart/:itemId/listings/:store', loadItemAndCheckMembership, ah(async
     update: {
       price: inStock ? price : 0,
       inStock: !!inStock,
-      packSize: packSize || null,
       matchedName: matchedName || null,
       source: 'MANUAL',
       checkedById: req.userId,
@@ -198,8 +205,26 @@ const QC_PLATFORM_TO_STORE = { BlinkIt: 'BLINKIT', Zepto: 'ZEPTO', Swiggy: 'INST
 router.post('/households/:householdId/cart/:itemId/refresh-price', requireHouseholdMember, ah(async (req, res) => {
   const item = await prisma.cartItem.findFirst({
     where: { id: req.params.itemId, householdId: req.householdId },
+    include: { listings: true },
   });
   if (!item) return res.status(404).json({ error: 'Item not found in this household' });
+
+  const lastLiveCheck = item.listings
+    .filter((l) => l.source === 'LIVE_API')
+    .reduce((latest, l) => (!latest || l.checkedAt > latest ? l.checkedAt : latest), null);
+  if (lastLiveCheck && !req.body.force) {
+    const ageMs = Date.now() - new Date(lastLiveCheck).getTime();
+    if (ageMs < REFRESH_COOLDOWN_MS) {
+      const minutesLeft = Math.ceil((REFRESH_COOLDOWN_MS - ageMs) / 60000);
+      return res.status(200).json({
+        skipped: true,
+        reason: `Checked ${Math.round(ageMs / 60000)}m ago - still fresh. Try again in ${minutesLeft}m, or pass force to check anyway.`,
+        updated: [],
+        notFound: [],
+        creditsRemaining: null,
+      });
+    }
+  }
 
   const household = await prisma.household.findUnique({ where: { id: req.householdId } });
   if (!household.qcApiKey || household.latitude == null || household.longitude == null) {
@@ -239,50 +264,58 @@ router.post('/households/:householdId/cart/:itemId/refresh-price', requireHouseh
       continue;
     }
 
-    // Search results aren't sorted by pack size, and the first hit is often a
-    // bulk pack (e.g. "45 pcs") rather than a single unit - prefer whichever
-    // candidate has the smallest parsed quantity, since that's what most
-    // shopping-list items mean by default.
-    let best = matches[0];
-    let bestCount = parseLeadingCount(best.quantity) ?? Infinity;
-    for (const candidate of matches.slice(1)) {
-      const count = parseLeadingCount(candidate.quantity);
-      if (count !== null && count < bestCount) {
-        best = candidate;
-        bestCount = count;
-      }
+    // Keep several distinct pack sizes (not just one "best" pick) so the plan
+    // can compare e.g. "3 pcs pack" against "1 pc x3" - sorted smallest-first
+    // since that's usually the most relevant default, deduped by pack size text.
+    const sorted = [...matches].sort((a, b) => (parseLeadingCount(a.quantity) ?? Infinity) - (parseLeadingCount(b.quantity) ?? Infinity));
+    const seenPackSizes = new Set();
+    const variants = [];
+    for (const candidate of sorted) {
+      const packSize = candidate.quantity ? String(candidate.quantity).trim() : DEFAULT_PACK_SIZE;
+      const key = packSize.toLowerCase();
+      if (seenPackSizes.has(key)) continue;
+      seenPackSizes.add(key);
+      variants.push({ candidate, packSize });
+      if (variants.length >= MAX_PACK_VARIANTS_PER_STORE) break;
     }
 
-    const price = Number(best.offer_price ?? best.mrp ?? 0);
-    const inStock = !!best.available;
-    const eta = best.platform?.sla ? String(best.platform.sla) : null;
-    const packSize = best.quantity ? String(best.quantity) : null;
-    const matchedName = best.name ? String(best.name) + (best.brand ? ` (${best.brand})` : '') : null;
-    const deeplink = best.deeplink ? String(best.deeplink) : null;
-    if (isNaN(price)) {
-      notFound.push(store);
-      continue;
+    const keptPackSizes = variants.map((v) => v.packSize);
+    await prisma.itemListing.deleteMany({
+      where: { itemId: item.id, store, source: 'LIVE_API', packSize: { notIn: keptPackSizes } },
+    });
+
+    let anySaved = false;
+    for (const { candidate, packSize } of variants) {
+      const price = Number(candidate.offer_price ?? candidate.mrp ?? 0);
+      if (isNaN(price)) continue;
+      const inStock = !!candidate.available;
+      const eta = candidate.platform?.sla ? String(candidate.platform.sla) : null;
+      const matchedName = candidate.name ? String(candidate.name) + (candidate.brand ? ` (${candidate.brand})` : '') : null;
+      const deeplink = candidate.deeplink ? String(candidate.deeplink) : null;
+      try {
+        await prisma.itemListing.upsert({
+          where: { itemId_store_packSize: { itemId: item.id, store, packSize } },
+          create: { itemId: item.id, store, price, inStock, eta, packSize, matchedName, deeplink, source: 'LIVE_API', checkedById: req.userId },
+          update: { price, inStock, eta, matchedName, deeplink, source: 'LIVE_API', checkedById: req.userId },
+        });
+        updated.push({ store, price, inStock, eta, packSize, matchedName });
+        anySaved = true;
+      } catch {
+        // skip this variant, try the rest
+      }
     }
-    try {
-      await prisma.itemListing.upsert({
-        where: { itemId_store: { itemId: item.id, store } },
-        create: { itemId: item.id, store, price, inStock, eta, packSize, matchedName, deeplink, source: 'LIVE_API', checkedById: req.userId },
-        update: { price, inStock, eta, packSize, matchedName, deeplink, source: 'LIVE_API', checkedById: req.userId },
-      });
-      updated.push({ store, price, inStock, eta, packSize, matchedName });
-    } catch {
-      notFound.push(store);
-    }
+    if (!anySaved) notFound.push(store);
   }
 
   res.json({ updated, notFound, creditsRemaining: data?.credits_remaining ?? null });
 }));
 
-// Reset a listing back to "unknown"
+// Remove one pack-size option for a store (defaults to the plain "1 unit" row)
 router.delete('/cart/:itemId/listings/:store', loadItemAndCheckMembership, ah(async (req, res) => {
   const { store } = req.params;
+  const packSize = (req.query.packSize && String(req.query.packSize).trim()) || DEFAULT_PACK_SIZE;
   await prisma.itemListing
-    .delete({ where: { itemId_store: { itemId: req.params.itemId, store } } })
+    .delete({ where: { itemId_store_packSize: { itemId: req.params.itemId, store, packSize } } })
     .catch(() => null);
   res.status(204).end();
 }));

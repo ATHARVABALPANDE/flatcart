@@ -1,3 +1,5 @@
+import { packUnits, desiredCount } from './quantity.js';
+
 export const STORES = ['BLINKIT', 'ZEPTO', 'INSTAMART', 'BIGBASKET'];
 
 function subsets(arr) {
@@ -13,7 +15,26 @@ function subsets(arr) {
   return result;
 }
 
-// items: [{ id, status, listings: [{ store, price, inStock }] }]
+// Given all of a store's in-stock pack options for one item, find the
+// cheapest way to reach the desired quantity by repeating a SINGLE option
+// (doesn't mix pack sizes - "2x pack-of-3" or "3x single", not "1 pack-of-3 +
+// 1 single"). That covers the common "is the bulk pack actually cheaper"
+// question without a much more complex combinatorial search.
+function bestOptionForStore(listings, count) {
+  let best = null;
+  for (const listing of listings) {
+    if (!listing.inStock) continue;
+    const units = packUnits(listing.packSize);
+    const packsNeeded = Math.ceil(count / units);
+    const totalCost = packsNeeded * listing.price;
+    if (!best || totalCost < best.totalCost) {
+      best = { listing, packsNeeded, unitsPerPack: units, totalCost };
+    }
+  }
+  return best;
+}
+
+// items: [{ id, quantity, status, listings: [{ store, price, inStock, packSize }] }]
 export function computePlan(items) {
   const pending = items.filter((i) => i.status === 'PENDING');
 
@@ -31,20 +52,22 @@ export function computePlan(items) {
       unavailableEverywhere.push(item.id);
       continue;
     }
-    coverable.push(item);
+    coverable.push({ ...item, wantCount: desiredCount(item.quantity) });
   }
 
-  // Per-store summary: what buying everything possible from just this store looks like
+  // Per-store summary: what buying everything possible from just this store
+  // looks like, using the cheapest pack-size option per item at that store.
   const perStore = STORES.map((store) => {
-    const available = coverable.filter((item) => item.listings.some((l) => l.store === store && l.inStock));
-    const subtotal = available.reduce((sum, item) => {
-      const listing = item.listings.find((l) => l.store === store && l.inStock);
-      return sum + listing.price;
-    }, 0);
-    const missingItemIds = coverable.filter((item) => !available.includes(item)).map((i) => i.id);
+    const availableWithOption = coverable
+      .map((item) => ({ item, option: bestOptionForStore(item.listings.filter((l) => l.store === store), item.wantCount) }))
+      .filter((x) => x.option);
+    const subtotal = availableWithOption.reduce((sum, x) => sum + x.option.totalCost, 0);
+    const missingItemIds = coverable
+      .filter((item) => !availableWithOption.some((x) => x.item.id === item.id))
+      .map((i) => i.id);
     return {
       store,
-      availableCount: available.length,
+      availableCount: availableWithOption.length,
       totalCoverable: coverable.length,
       subtotal,
       missingItemIds,
@@ -61,19 +84,25 @@ export function computePlan(items) {
 
     for (const item of coverable) {
       let bestStore = null;
-      let bestPrice = Infinity;
+      let bestOption = null;
       for (const store of candidateStores) {
-        const listing = item.listings.find((l) => l.store === store && l.inStock);
-        if (listing && listing.price < bestPrice) {
-          bestPrice = listing.price;
+        const option = bestOptionForStore(item.listings.filter((l) => l.store === store), item.wantCount);
+        if (option && (!bestOption || option.totalCost < bestOption.totalCost)) {
+          bestOption = option;
           bestStore = store;
         }
       }
       if (bestStore) {
         coveredCount++;
-        const listing = item.listings.find((l) => l.store === bestStore && l.inStock);
         if (!assignment[bestStore]) assignment[bestStore] = [];
-        assignment[bestStore].push({ id: item.id, name: item.name, price: bestPrice, packSize: listing?.packSize ?? null });
+        assignment[bestStore].push({
+          id: item.id,
+          name: item.name,
+          price: bestOption.totalCost,
+          packSize: bestOption.listing.packSize,
+          packsNeeded: bestOption.packsNeeded,
+          unitPrice: bestOption.listing.price,
+        });
       }
     }
 

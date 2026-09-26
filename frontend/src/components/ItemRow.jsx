@@ -1,20 +1,32 @@
 import { useState } from 'react';
 import { STORES, storeInfo } from '../stores.js';
-import ListingCell from './ListingCell.jsx';
-import { comparisonIssue } from '../quantity.js';
+import StoreOptions from './StoreOptions.jsx';
+import { comparisonIssue, bestOption, desiredCount } from '../quantity.js';
 
 export default function ItemRow({ item, onSaveListing, onClearListing, onToggleOrdered, onDelete, onRefreshPrice, liveConfigured }) {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState('');
+  const [canForceRefresh, setCanForceRefresh] = useState(false);
   const isOrdered = item.status === 'ORDERED';
-  const listingByStore = Object.fromEntries(item.listings.map((l) => [l.store, l]));
-  const issue = !isOrdered ? comparisonIssue(item.listings) : null;
+  const wantCount = desiredCount(item.quantity);
 
-  async function handleRefresh() {
+  const listingsByStore = Object.fromEntries(STORES.map((s) => [s.key, item.listings.filter((l) => l.store === s.key)]));
+  const bestPerStore = STORES.map((s) => bestOption(listingsByStore[s.key].filter((l) => l.inStock), wantCount))
+    .filter(Boolean)
+    .map((b) => b.listing);
+  const issue = !isOrdered ? comparisonIssue(bestPerStore) : null;
+
+  async function handleRefresh(force) {
     setRefreshing(true);
     setRefreshMsg('');
+    setCanForceRefresh(false);
     try {
-      const result = await onRefreshPrice(item);
+      const result = await onRefreshPrice(item, force);
+      if (result.skipped) {
+        setRefreshMsg(result.reason);
+        setCanForceRefresh(true);
+        return;
+      }
       const updatedLabels = result.updated.map((u) => storeInfo(u.store).label);
       const notFoundLabels = result.notFound.map((s) => storeInfo(s).label);
       let msg = updatedLabels.length ? `Updated: ${updatedLabels.join(', ')}` : 'No matches found';
@@ -49,7 +61,7 @@ export default function ItemRow({ item, onSaveListing, onClearListing, onToggleO
           ) : (
             <>
               {liveConfigured && (
-                <button className="link" disabled={refreshing} onClick={handleRefresh}>
+                <button className="link" disabled={refreshing} onClick={() => handleRefresh(false)}>
                   {refreshing ? 'Checking live prices...' : 'Refresh live price'}
                 </button>
               )}
@@ -59,19 +71,30 @@ export default function ItemRow({ item, onSaveListing, onClearListing, onToggleO
         </div>
       </div>
 
-      {refreshMsg && <div className="item-meta muted">{refreshMsg}</div>}
+      {refreshMsg && (
+        <div className="item-meta muted">
+          {refreshMsg}
+          {canForceRefresh && (
+            <>
+              {' '}
+              <button className="link" disabled={refreshing} onClick={() => handleRefresh(true)}>Refresh anyway</button>
+            </>
+          )}
+        </div>
+      )}
       {issue && <div className="item-meta warning">⚠ {issue}</div>}
 
       {!isOrdered && (
         <div className="listing-grid">
           {STORES.map((s) => (
-            <ListingCell
+            <StoreOptions
               key={s.key}
               store={s.key}
-              listing={listingByStore[s.key]}
+              listings={listingsByStore[s.key]}
               itemName={item.name}
+              wantCount={wantCount}
               onSave={(data) => onSaveListing(item, s.key, data)}
-              onClear={() => onClearListing(item, s.key)}
+              onClear={(packSize) => onClearListing(item, s.key, packSize)}
             />
           ))}
         </div>

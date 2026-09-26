@@ -46,13 +46,14 @@ export const api = {
 
   setListing: (itemId, store, { price, inStock, packSize, matchedName }) =>
     request(`/cart/${itemId}/listings/${store}`, { method: 'PUT', body: { price, inStock, packSize, matchedName } }),
-  clearListing: (itemId, store) => request(`/cart/${itemId}/listings/${store}`, { method: 'DELETE' }),
+  clearListing: (itemId, store, packSize) =>
+    request(`/cart/${itemId}/listings/${store}?packSize=${encodeURIComponent(packSize || '1 unit')}`, { method: 'DELETE' }),
 
   getLivePricingSettings: (householdId) => request(`/households/${householdId}/live-pricing`),
   updateLivePricingSettings: (householdId, patch) =>
     request(`/households/${householdId}/live-pricing`, { method: 'PATCH', body: patch }),
-  refreshPrice: (householdId, itemId) =>
-    request(`/households/${householdId}/cart/${itemId}/refresh-price`, { method: 'POST' }),
+  refreshPrice: (householdId, itemId, force) =>
+    request(`/households/${householdId}/cart/${itemId}/refresh-price`, { method: 'POST', body: { force: !!force } }),
 
   reverseGeocode: (lat, lon) => request(`/geocode/reverse?lat=${lat}&lon=${lon}`),
 };

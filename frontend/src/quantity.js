@@ -49,15 +49,49 @@ export function formatPerUnit(price, qty) {
   return `₹${(price / parsed.baseQty).toFixed(2)}/${parsed.baseUnit}`;
 }
 
-// Returns a reason string if this item's in-stock listings can't be honestly
-// compared side by side, or null if they're on the same footing.
-export function comparisonIssue(listings) {
-  const inStock = listings.filter((l) => l.inStock);
-  if (inStock.length < 2) return null;
+// How many discrete units of the shopping-list item does buying ONE of this
+// pack actually give you? "3 pcs" -> 3. Volume/weight or unparseable packs
+// count as 1 discrete purchase unit (buying "750 ml" once gets you 1 bottle).
+export function packUnits(packSize) {
+  const parsed = parseQuantity(packSize);
+  if (parsed && parsed.category.startsWith('count:')) return parsed.baseQty;
+  return 1;
+}
 
-  // A listing with no packSize at all, or one that doesn't parse (e.g.
-  // "combo" has no number to extract), is equally "unclear" for comparison.
-  const parsed = inStock.map((l) => (l.packSize ? parseQuantity(l.packSize) : null));
+// How many of THIS item does the shopping list actually want?
+export function desiredCount(quantityText) {
+  const match = String(quantityText || '1').match(/([\d.]+)/);
+  if (!match) return 1;
+  const n = parseFloat(match[1]);
+  return isNaN(n) || n <= 0 ? 1 : Math.round(n);
+}
+
+// Cheapest way to reach `count` units at one store by repeating a SINGLE
+// pack option (mirrors the backend's planner logic) - used to pick which of
+// several pack sizes is the best deal for the quantity wanted.
+export function bestOption(listings, count) {
+  let best = null;
+  for (const listing of listings) {
+    if (!listing.inStock) continue;
+    const units = packUnits(listing.packSize);
+    const packsNeeded = Math.ceil(count / units);
+    const totalCost = packsNeeded * listing.price;
+    if (!best || totalCost < best.totalCost) {
+      best = { listing, packsNeeded, unitsPerPack: units, totalCost };
+    }
+  }
+  return best;
+}
+
+// Returns a reason string if the stores' best options for this item can't be
+// honestly compared side by side, or null if they're on the same footing.
+// Takes one representative listing per store (its cheapest-for-quantity
+// pick), not every pack size a store might offer - two pack sizes at the
+// SAME store are expected and not a mismatch.
+export function comparisonIssue(bestListingsByStore) {
+  if (bestListingsByStore.length < 2) return null;
+
+  const parsed = bestListingsByStore.map((l) => (l.packSize ? parseQuantity(l.packSize) : null));
   const unclearCount = parsed.filter((p) => p === null).length;
   const valid = parsed.filter(Boolean);
 

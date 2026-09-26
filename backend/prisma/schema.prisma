@@ -95,7 +95,10 @@ model ItemListing {
   inStock Boolean @default(true)
   source  ListingSource @default(MANUAL)
   eta     String? // delivery time estimate from the live-pricing API, e.g. "8 mins"
-  packSize String? // what this price is actually for, e.g. "1 pc", "45 pcs", "500 ml"
+  // What this price is actually for, e.g. "1 pc", "3 pcs", "500 ml" - defaults
+  // to "1 unit" rather than null so a store can have several rows, one per
+  // pack size, without ambiguity (lets us compare "3 pcs pack" vs "1 pc x3").
+  packSize String @default("1 unit")
   matchedName String? // the exact product title the price was matched to, e.g. "Sprite Zero 750ml" - lets you verify it's really the same product across stores
   deeplink    String? // link straight to that matched product (from the live API) or a search fallback
 
@@ -105,5 +108,5 @@ model ItemListing {
   item      CartItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   checkedBy User     @relation("CheckedBy", fields: [checkedById], references: [id])
 
-  @@unique([itemId, store])
+  @@unique([itemId, store, packSize])
 }

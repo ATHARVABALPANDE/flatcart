@@ -61,8 +61,8 @@ export default function Cart() {
     loadList();
   }
 
-  async function handleClearListing(item, store) {
-    await api.clearListing(item.id, store);
+  async function handleClearListing(item, store, packSize) {
+    await api.clearListing(item.id, store, packSize);
     loadList();
   }
 
@@ -88,9 +88,9 @@ export default function Cart() {
     loadLivePricing();
   }
 
-  async function handleRefreshPrice(item) {
-    const result = await api.refreshPrice(householdId, item.id);
-    loadList();
+  async function handleRefreshPrice(item, force) {
+    const result = await api.refreshPrice(householdId, item.id, force);
+    if (!result.skipped) loadList();
     return result;
   }
 
