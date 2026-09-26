@@ -1,10 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { STORES, storeInfo } from '../stores.js';
 import StoreOptions from './StoreOptions.jsx';
 import { comparisonIssue, bestOption, desiredCount } from '../quantity.js';
 
 export default function ItemRow({ item, onSaveListing, onClearListing, onToggleOrdered, onDelete, onRefreshPrice, liveConfigured }) {
   const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    const checkHash = () => {
+      if (window.location.hash === `#item-${item.id}`) setExpanded(true);
+    };
+    checkHash();
+    window.addEventListener('hashchange', checkHash);
+    return () => window.removeEventListener('hashchange', checkHash);
+  }, [item.id]);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState('');
   const [canForceRefresh, setCanForceRefresh] = useState(false);
@@ -43,7 +52,7 @@ export default function ItemRow({ item, onSaveListing, onClearListing, onToggleO
   }
 
   return (
-    <li className={`item-row ${isOrdered ? 'ordered' : ''}`}>
+    <li id={`item-${item.id}`} className={`item-row ${isOrdered ? 'ordered' : ''}`}>
       <div className="item-top" onClick={() => !isOrdered && setExpanded((v) => !v)}>
         <div className="item-main">
           <span className="item-name">{item.name}</span>

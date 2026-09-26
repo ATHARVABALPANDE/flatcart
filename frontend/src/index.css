@@ -318,11 +318,36 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   border-left: 4px solid var(--store-color, var(--accent));
   padding-left: 8px;
 }
-.order-plan-btn { margin-left: auto; font-size: 12px; padding: 8px 14px; }
 .plan-item-list { list-style: none; margin: 8px 0 0; padding: 0; font-size: 12px; }
 .plan-item-list li { padding: 2px 0; }
+.plan-item-link {
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--muted);
+}
+.plan-item-link:hover { border-bottom-style: solid; }
+
+.plan-store-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+}
+.open-store-btn {
+  display: inline-block;
+  background: var(--card);
+  color: var(--store-color, var(--accent));
+  border: 2px solid var(--store-color, var(--accent));
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
 
 .plan-note { margin: 8px 0; }
+.plan-note-link { color: var(--accent); font-weight: 700; text-decoration: none; }
+.plan-note-link:hover { text-decoration: underline; }
 
 .store-settings-panel { margin-bottom: 24px; }
 .store-settings-list {

@@ -102,6 +102,7 @@ export function computePlan(items) {
           packSize: bestOption.listing.packSize,
           packsNeeded: bestOption.packsNeeded,
           unitPrice: bestOption.listing.price,
+          deeplink: bestOption.listing.deeplink || null,
         });
       }
     }
