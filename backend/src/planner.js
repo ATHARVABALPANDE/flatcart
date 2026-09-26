@@ -1,4 +1,4 @@
-import { packUnits, desiredCount } from './quantity.js';
+import { packsNeededFor } from './quantity.js';
 
 export const STORES = ['BLINKIT', 'ZEPTO', 'INSTAMART', 'BIGBASKET'];
 
@@ -20,15 +20,14 @@ function subsets(arr) {
 // (doesn't mix pack sizes - "2x pack-of-3" or "3x single", not "1 pack-of-3 +
 // 1 single"). That covers the common "is the bulk pack actually cheaper"
 // question without a much more complex combinatorial search.
-function bestOptionForStore(listings, count) {
+function bestOptionForStore(listings, requestedQty) {
   let best = null;
   for (const listing of listings) {
     if (!listing.inStock) continue;
-    const units = packUnits(listing.packSize);
-    const packsNeeded = Math.ceil(count / units);
+    const packsNeeded = packsNeededFor(requestedQty, listing.packSize);
     const totalCost = packsNeeded * listing.price;
     if (!best || totalCost < best.totalCost) {
-      best = { listing, packsNeeded, unitsPerPack: units, totalCost };
+      best = { listing, packsNeeded, totalCost };
     }
   }
   return best;
@@ -52,14 +51,14 @@ export function computePlan(items) {
       unavailableEverywhere.push(item.id);
       continue;
     }
-    coverable.push({ ...item, wantCount: desiredCount(item.quantity) });
+    coverable.push(item);
   }
 
   // Per-store summary: what buying everything possible from just this store
   // looks like, using the cheapest pack-size option per item at that store.
   const perStore = STORES.map((store) => {
     const availableWithOption = coverable
-      .map((item) => ({ item, option: bestOptionForStore(item.listings.filter((l) => l.store === store), item.wantCount) }))
+      .map((item) => ({ item, option: bestOptionForStore(item.listings.filter((l) => l.store === store), item.quantity) }))
       .filter((x) => x.option);
     const subtotal = availableWithOption.reduce((sum, x) => sum + x.option.totalCost, 0);
     const missingItemIds = coverable
@@ -86,7 +85,7 @@ export function computePlan(items) {
       let bestStore = null;
       let bestOption = null;
       for (const store of candidateStores) {
-        const option = bestOptionForStore(item.listings.filter((l) => l.store === store), item.wantCount);
+        const option = bestOptionForStore(item.listings.filter((l) => l.store === store), item.quantity);
         if (option && (!bestOption || option.totalCost < bestOption.totalCost)) {
           bestOption = option;
           bestStore = store;

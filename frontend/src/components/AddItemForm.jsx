@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 export default function AddItemForm({ onAdd }) {
   const [name, setName] = useState('');
-  const [quantity, setQuantity] = useState('1');
+  const [quantity, setQuantity] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -13,7 +13,7 @@ export default function AddItemForm({ onAdd }) {
     try {
       await onAdd({ name: name.trim(), quantity: quantity.trim() || '1', note: note.trim() || undefined });
       setName('');
-      setQuantity('1');
+      setQuantity('');
       setNote('');
     } finally {
       setBusy(false);
@@ -30,7 +30,7 @@ export default function AddItemForm({ onAdd }) {
       />
       <input
         className="add-item-qty"
-        placeholder="Qty"
+        placeholder="1, 2 L, 500 g"
         value={quantity}
         onChange={(e) => setQuantity(e.target.value)}
       />

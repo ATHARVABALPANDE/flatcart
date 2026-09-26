@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { storeInfo } from '../stores.js';
-import { formatPerUnit, packUnits, bestOption } from '../quantity.js';
+import { formatPerUnit, packsNeededFor, bestOption } from '../quantity.js';
 
 function OptionForm({ initial, busy, onSubmit, onOutOfStock, onDelete, onCancel, showDelete }) {
   const [price, setPrice] = useState(initial?.price != null ? String(initial.price) : '');
@@ -29,12 +29,12 @@ function OptionForm({ initial, busy, onSubmit, onOutOfStock, onDelete, onCancel,
   );
 }
 
-export default function StoreOptions({ store, listings, itemName, wantCount, onSave, onClear }) {
+export default function StoreOptions({ store, listings, itemName, requestedQty, onSave, onClear }) {
   const [editingKey, setEditingKey] = useState(null); // packSize of listing being edited, or '__new__'
   const [busy, setBusy] = useState(false);
   const info = storeInfo(store);
   const inStockListings = listings.filter((l) => l.inStock);
-  const best = inStockListings.length ? bestOption(inStockListings, wantCount) : null;
+  const best = inStockListings.length ? bestOption(inStockListings, requestedQty) : null;
 
   async function handleSave(data) {
     setBusy(true);
@@ -83,8 +83,7 @@ export default function StoreOptions({ store, listings, itemName, wantCount, onS
 
       {listings.map((listing) => {
         const isBest = best && best.listing === listing;
-        const units = packUnits(listing.packSize);
-        const packsNeeded = Math.ceil(wantCount / units);
+        const packsNeeded = packsNeededFor(requestedQty, listing.packSize);
         const totalForQty = packsNeeded * listing.price;
         const perUnit = listing.inStock ? formatPerUnit(listing.price, listing.packSize) : null;
 
@@ -103,7 +102,7 @@ export default function StoreOptions({ store, listings, itemName, wantCount, onS
           );
         }
 
-        const qtyLine = listing.inStock && wantCount > 1 ? `${packsNeeded}× = ₹${totalForQty.toFixed(2)} for ${wantCount}` : null;
+        const qtyLine = listing.inStock && packsNeeded > 1 ? `${packsNeeded}× = ₹${totalForQty.toFixed(2)} for ${requestedQty}` : null;
         const detailLine = [qtyLine, perUnit].filter(Boolean).join(' · ');
         const noteLine = [listing.matchedName, listing.eta].filter(Boolean).join(' · ');
 
@@ -112,7 +111,7 @@ export default function StoreOptions({ store, listings, itemName, wantCount, onS
             <div className="option-row-main">
               <span className="option-packsize">{listing.packSize}</span>
               {listing.inStock ? <span className="listing-price">₹{listing.price}</span> : <span className="listing-oos">out of stock</span>}
-              {isBest && wantCount > 1 && <span className="best-badge">best for x{wantCount}</span>}
+              {isBest && inStockListings.length > 1 && <span className="best-badge">best for {requestedQty}</span>}
             </div>
             {detailLine && <div className="option-row-sub muted">{detailLine}</div>}
             {noteLine && <div className="option-row-sub muted listing-matchedname" title={noteLine}>{noteLine}</div>}

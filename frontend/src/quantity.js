@@ -6,14 +6,19 @@
 // exact unit label - two "combo" listings are comparable to each other, but
 // "combo" and "pc" are not, and neither is comparable to a volume/weight one.
 
+// Spelled out generously on purpose: these are matched against both what a
+// person types ("2 ltr") and whatever a store calls its pack ("1 Ltr"), and an
+// unrecognized unit silently falls into a count bucket where 2 litres would be
+// read as "2 of anything" - which is how a 2 L request got 360 ml of shampoo.
 const VOLUME_UNITS = {
-  ml: 1, millilitre: 1, millilitres: 1, milliliter: 1, milliliters: 1,
-  l: 1000, litre: 1000, litres: 1000, liter: 1000, liters: 1000,
+  ml: 1, mls: 1, millilitre: 1, millilitres: 1, milliliter: 1, milliliters: 1,
+  l: 1000, lt: 1000, lts: 1000, ltr: 1000, ltrs: 1000,
+  litre: 1000, litres: 1000, liter: 1000, liters: 1000,
 };
 
 const WEIGHT_UNITS = {
-  g: 1, gm: 1, gram: 1, grams: 1,
-  kg: 1000, kilogram: 1000, kilograms: 1000,
+  g: 1, gm: 1, gms: 1, gram: 1, grams: 1, grm: 1, grms: 1,
+  kg: 1000, kgs: 1000, kilo: 1000, kilos: 1000, kilogram: 1000, kilograms: 1000,
 };
 
 export function parseQuantity(qty) {
@@ -66,18 +71,32 @@ export function desiredCount(quantityText) {
   return isNaN(n) || n <= 0 ? 1 : Math.round(n);
 }
 
-// Cheapest way to reach `count` units at one store by repeating a SINGLE
-// pack option (mirrors the backend's planner logic) - used to pick which of
-// several pack sizes is the best deal for the quantity wanted.
-export function bestOption(listings, count) {
+// How many of this pack you must buy to satisfy what was asked for. When the
+// request and the pack are the same measurable kind ("2 L" wanted against
+// "500 ml" bottles) the real amounts are compared, so asking for 2 L can't be
+// answered with two 180 ml bottles. Otherwise the request is read as a plain
+// count of packs, which is what "3" against "1 pc" means.
+export function packsNeededFor(requestedQty, packSize) {
+  const want = parseQuantity(requestedQty);
+  const pack = parseQuantity(packSize);
+
+  if (want && pack && want.category === pack.category && pack.baseQty > 0) {
+    return Math.ceil(want.baseQty / pack.baseQty);
+  }
+  return Math.ceil(desiredCount(requestedQty) / packUnits(packSize));
+}
+
+// Cheapest way to satisfy the requested quantity at one store by repeating a
+// SINGLE pack option (mirrors the backend's planner logic) - used to pick
+// which of several pack sizes is the best deal for what was actually asked.
+export function bestOption(listings, requestedQty) {
   let best = null;
   for (const listing of listings) {
     if (!listing.inStock) continue;
-    const units = packUnits(listing.packSize);
-    const packsNeeded = Math.ceil(count / units);
+    const packsNeeded = packsNeededFor(requestedQty, listing.packSize);
     const totalCost = packsNeeded * listing.price;
     if (!best || totalCost < best.totalCost) {
-      best = { listing, packsNeeded, unitsPerPack: units, totalCost };
+      best = { listing, packsNeeded, totalCost };
     }
   }
   return best;

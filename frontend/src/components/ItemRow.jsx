@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { STORES, storeInfo } from '../stores.js';
 import StoreOptions from './StoreOptions.jsx';
-import { comparisonIssue, bestOption, desiredCount } from '../quantity.js';
+import { comparisonIssue, bestOption } from '../quantity.js';
 
 export default function ItemRow({ item, onSaveListing, onClearListing, onToggleOrdered, onDelete, onRefreshPrice, liveConfigured }) {
   const [expanded, setExpanded] = useState(false);
@@ -18,12 +18,11 @@ export default function ItemRow({ item, onSaveListing, onClearListing, onToggleO
   const [refreshMsg, setRefreshMsg] = useState('');
   const [canForceRefresh, setCanForceRefresh] = useState(false);
   const isOrdered = item.status === 'ORDERED';
-  const wantCount = desiredCount(item.quantity);
 
   const listingsByStore = Object.fromEntries(STORES.map((s) => [s.key, item.listings.filter((l) => l.store === s.key)]));
   const optionsPerStore = STORES.map((s) => ({
     store: s.key,
-    option: bestOption(listingsByStore[s.key].filter((l) => l.inStock), wantCount),
+    option: bestOption(listingsByStore[s.key].filter((l) => l.inStock), item.quantity),
   })).filter((x) => x.option);
   const globalBest = optionsPerStore.reduce((best, x) => (!best || x.option.totalCost < best.option.totalCost ? x : best), null);
   const issue = !isOrdered ? comparisonIssue(optionsPerStore.map((x) => x.option.listing)) : null;
@@ -120,7 +119,7 @@ export default function ItemRow({ item, onSaveListing, onClearListing, onToggleO
               store={s.key}
               listings={listingsByStore[s.key]}
               itemName={item.name}
-              wantCount={wantCount}
+              requestedQty={item.quantity}
               onSave={(data) => onSaveListing(item, s.key, data)}
               onClear={(packSize) => onClearListing(item, s.key, packSize)}
             />
