@@ -1,39 +1,16 @@
 import { storeInfo } from '../stores.js';
 
-function StoreCard({ storeStat }) {
-  const info = storeInfo(storeStat.store);
-  const short = storeStat.availableCount < storeStat.totalCoverable;
-  return (
-    <div className="store-card" style={{ '--store-color': info.color }}>
-      <div className="store-card-head">
-        <span className="store-card-name">{info.label}</span>
-        <span className="store-card-subtotal">₹{storeStat.subtotal.toFixed(2)}</span>
-      </div>
-      <div className="store-card-line muted">
-        covers {storeStat.availableCount}/{storeStat.totalCoverable} items
-        {short && ' (missing some)'}
-      </div>
-    </div>
-  );
-}
-
-export default function PlanSummary({ perStore, plan, unchecked, unavailableEverywhere, items, onOrderStore }) {
+export default function PlanSummary({ plan, unchecked, unavailableEverywhere, items, onOrderStore }) {
   const itemsById = Object.fromEntries(items.map((i) => [i.id, i]));
 
   return (
     <section className="plan-summary">
-      <h2>Store comparison</h2>
-      <div className="store-card-grid">
-        {perStore.map((s) => (
-          <StoreCard key={s.store} storeStat={s} />
-        ))}
-      </div>
+      <h2>Recommended order</h2>
 
-      {plan.stores.length > 0 && (
+      {plan.stores.length > 0 ? (
         <div className="suggested-plan">
           <h3>
-            Suggested plan &middot; {plan.storesUsed} store{plan.storesUsed === 1 ? '' : 's'} &middot; total ₹
-            {plan.totalCost.toFixed(2)}
+            {plan.storesUsed} store{plan.storesUsed === 1 ? '' : 's'} &middot; total ₹{plan.totalCost.toFixed(2)}
           </h3>
           {plan.stores.map((storePlan) => {
             const info = storeInfo(storePlan.store);
@@ -58,6 +35,8 @@ export default function PlanSummary({ perStore, plan, unchecked, unavailableEver
             );
           })}
         </div>
+      ) : (
+        <p className="muted">Add a price for at least one item to get an order recommendation.</p>
       )}
 
       {unchecked.length > 0 && (

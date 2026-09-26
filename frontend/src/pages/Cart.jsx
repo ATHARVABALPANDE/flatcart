@@ -19,6 +19,7 @@ export default function Cart() {
   const [livePricing, setLivePricing] = useState(null);
   const [error, setError] = useState('');
   const [showInvite, setShowInvite] = useState(false);
+  const [showOrdered, setShowOrdered] = useState(false);
   const pollRef = useRef(null);
 
   const loadList = useCallback(async () => {
@@ -158,9 +159,8 @@ export default function Cart() {
         )}
       </section>
 
-      {list && list.items.length > 0 && (
+      {list && pendingItems.length > 0 && (
         <PlanSummary
-          perStore={list.perStore}
           plan={list.plan}
           unchecked={list.unchecked}
           unavailableEverywhere={list.unavailableEverywhere}
@@ -173,19 +173,23 @@ export default function Cart() {
 
       {orderedItems.length > 0 && (
         <section className="cart-section">
-          <h2>Already ordered</h2>
-          <ul className="item-list">
-            {orderedItems.map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                onSaveListing={handleSaveListing}
-                onClearListing={handleClearListing}
-                onToggleOrdered={handleToggleOrdered}
-                onDelete={handleDelete}
-              />
-            ))}
-          </ul>
+          <button className="link" onClick={() => setShowOrdered((v) => !v)}>
+            {showOrdered ? 'Hide' : 'Show'} already ordered ({orderedItems.length})
+          </button>
+          {showOrdered && (
+            <ul className="item-list" style={{ marginTop: 10 }}>
+              {orderedItems.map((item) => (
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  onSaveListing={handleSaveListing}
+                  onClearListing={handleClearListing}
+                  onToggleOrdered={handleToggleOrdered}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </ul>
+          )}
         </section>
       )}
     </div>

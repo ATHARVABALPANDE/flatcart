@@ -4,6 +4,7 @@ import StoreOptions from './StoreOptions.jsx';
 import { comparisonIssue, bestOption, desiredCount } from '../quantity.js';
 
 export default function ItemRow({ item, onSaveListing, onClearListing, onToggleOrdered, onDelete, onRefreshPrice, liveConfigured }) {
+  const [expanded, setExpanded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState('');
   const [canForceRefresh, setCanForceRefresh] = useState(false);
@@ -11,10 +12,12 @@ export default function ItemRow({ item, onSaveListing, onClearListing, onToggleO
   const wantCount = desiredCount(item.quantity);
 
   const listingsByStore = Object.fromEntries(STORES.map((s) => [s.key, item.listings.filter((l) => l.store === s.key)]));
-  const bestPerStore = STORES.map((s) => bestOption(listingsByStore[s.key].filter((l) => l.inStock), wantCount))
-    .filter(Boolean)
-    .map((b) => b.listing);
-  const issue = !isOrdered ? comparisonIssue(bestPerStore) : null;
+  const optionsPerStore = STORES.map((s) => ({
+    store: s.key,
+    option: bestOption(listingsByStore[s.key].filter((l) => l.inStock), wantCount),
+  })).filter((x) => x.option);
+  const globalBest = optionsPerStore.reduce((best, x) => (!best || x.option.totalCost < best.option.totalCost ? x : best), null);
+  const issue = !isOrdered ? comparisonIssue(optionsPerStore.map((x) => x.option.listing)) : null;
 
   async function handleRefresh(force) {
     setRefreshing(true);
@@ -41,11 +44,19 @@ export default function ItemRow({ item, onSaveListing, onClearListing, onToggleO
 
   return (
     <li className={`item-row ${isOrdered ? 'ordered' : ''}`}>
-      <div className="item-top">
+      <div className="item-top" onClick={() => !isOrdered && setExpanded((v) => !v)}>
         <div className="item-main">
           <span className="item-name">{item.name}</span>
           <span className="item-qty">x{item.quantity}</span>
           {item.note && <span className="item-note">{item.note}</span>}
+          {!isOrdered && (
+            <span className={`deal-chip ${globalBest ? 'ok' : 'muted'}`}>
+              {issue && '⚠ '}
+              {globalBest
+                ? `Cheapest: ₹${globalBest.option.totalCost.toFixed(2)} @ ${storeInfo(globalBest.store).label}`
+                : 'Not checked yet'}
+            </span>
+          )}
         </div>
         <span className="item-meta muted">
           added by {item.addedBy?.name}
@@ -55,17 +66,18 @@ export default function ItemRow({ item, onSaveListing, onClearListing, onToggleO
             </>
           )}
         </span>
-        <div className="item-actions">
+        <div className="item-actions" onClick={(e) => e.stopPropagation()}>
           {isOrdered ? (
             <button className="link" onClick={() => onToggleOrdered(item)}>Mark pending</button>
           ) : (
             <>
               {liveConfigured && (
                 <button className="link" disabled={refreshing} onClick={() => handleRefresh(false)}>
-                  {refreshing ? 'Checking live prices...' : 'Refresh live price'}
+                  {refreshing ? 'Checking...' : 'Refresh live price'}
                 </button>
               )}
               <button className="link danger" onClick={() => onDelete(item)}>Remove</button>
+              <button className="link expand-toggle" onClick={() => setExpanded((v) => !v)}>{expanded ? '▲' : '▼'}</button>
             </>
           )}
         </div>
@@ -82,9 +94,9 @@ export default function ItemRow({ item, onSaveListing, onClearListing, onToggleO
           )}
         </div>
       )}
-      {issue && <div className="item-meta warning">⚠ {issue}</div>}
+      {expanded && issue && <div className="item-meta warning">⚠ {issue}</div>}
 
-      {!isOrdered && (
+      {!isOrdered && expanded && (
         <div className="listing-grid">
           {STORES.map((s) => (
             <StoreOptions

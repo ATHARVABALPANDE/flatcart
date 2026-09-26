@@ -173,14 +173,24 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .item-row.ordered { opacity: 0.6; }
 .item-row.ordered .item-name { text-decoration: line-through; }
 
-.item-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
-.item-main { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.item-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; cursor: pointer; }
+.item-main { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .item-name { font-size: 14px; }
 .item-qty { font-size: 12px; color: var(--muted); }
 .item-note { font-size: 12px; color: var(--muted); font-style: italic; }
 .item-meta { flex-basis: 100%; font-size: 12px; }
 .item-meta.warning { color: var(--danger); }
-.item-actions { margin-left: auto; }
+.item-actions { margin-left: auto; cursor: default; }
+.expand-toggle { font-size: 10px; }
+
+.deal-chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--border);
+  color: var(--muted);
+}
+.deal-chip.ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
 
 .listing-grid {
   display: grid;
@@ -268,28 +278,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .plan-summary { margin-bottom: 24px; }
 .plan-summary h2 { font-size: 16px; margin: 0 0 12px; }
 .plan-summary h3 { font-size: 14px; margin: 0 0 10px; }
-
-.store-card-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-bottom: 16px;
-}
-@media (max-width: 520px) {
-  .store-card-grid { grid-template-columns: repeat(2, 1fr); }
-}
-.store-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-top: 3px solid var(--store-color, var(--border));
-  border-radius: 10px;
-  padding: 10px;
-}
-.store-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
-.store-card-name { font-size: 13px; font-weight: 600; }
-.store-card-subtotal { font-size: 13px; }
-.store-card-line { font-size: 11px; margin-top: 4px; }
-.store-card-line.ok { color: var(--ok); }
 
 .suggested-plan {
   background: var(--card);

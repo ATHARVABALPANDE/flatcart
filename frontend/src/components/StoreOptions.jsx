@@ -73,7 +73,7 @@ export default function StoreOptions({ store, listings, itemName, wantCount, onS
       <div className="store-options-head">
         <span className="listing-store-label">{info.label}</span>
         {verifyUrl && (
-          <a className="listing-verify" href={verifyUrl} target="_blank" rel="noreferrer">Verify ↗</a>
+          <a className="listing-verify" href={verifyUrl} target="_blank" rel="noreferrer" title={`Verify on ${info.label}`} onClick={(e) => e.stopPropagation()}>↗</a>
         )}
       </div>
 
@@ -103,6 +103,10 @@ export default function StoreOptions({ store, listings, itemName, wantCount, onS
           );
         }
 
+        const qtyLine = listing.inStock && wantCount > 1 ? `${packsNeeded}× = ₹${totalForQty.toFixed(2)} for ${wantCount}` : null;
+        const detailLine = [qtyLine, perUnit].filter(Boolean).join(' · ');
+        const noteLine = [listing.matchedName, listing.eta].filter(Boolean).join(' · ');
+
         return (
           <div key={listing.packSize} className={`option-row ${isBest ? 'best' : ''}`} onClick={() => setEditingKey(listing.packSize)}>
             <div className="option-row-main">
@@ -110,14 +114,8 @@ export default function StoreOptions({ store, listings, itemName, wantCount, onS
               {listing.inStock ? <span className="listing-price">₹{listing.price}</span> : <span className="listing-oos">out of stock</span>}
               {isBest && wantCount > 1 && <span className="best-badge">best for x{wantCount}</span>}
             </div>
-            {listing.inStock && wantCount > 1 && (
-              <div className="option-row-sub muted">
-                {packsNeeded}× = ₹{totalForQty.toFixed(2)} for {wantCount}
-              </div>
-            )}
-            {perUnit && <div className="option-row-sub muted">{perUnit}</div>}
-            {listing.matchedName && <div className="option-row-sub muted listing-matchedname" title={listing.matchedName}>{listing.matchedName}</div>}
-            {listing.eta && <div className="option-row-sub muted">{listing.eta}</div>}
+            {detailLine && <div className="option-row-sub muted">{detailLine}</div>}
+            {noteLine && <div className="option-row-sub muted listing-matchedname" title={noteLine}>{noteLine}</div>}
           </div>
         );
       })}
