@@ -96,6 +96,8 @@ model ItemListing {
   source  ListingSource @default(MANUAL)
   eta     String? // delivery time estimate from the live-pricing API, e.g. "8 mins"
   packSize String? // what this price is actually for, e.g. "1 pc", "45 pcs", "500 ml"
+  matchedName String? // the exact product title the price was matched to, e.g. "Sprite Zero 750ml" - lets you verify it's really the same product across stores
+  deeplink    String? // link straight to that matched product (from the live API) or a search fallback
 
   checkedById String
   checkedAt   DateTime @updatedAt

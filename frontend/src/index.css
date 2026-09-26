@@ -195,7 +195,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .listing-cell {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   gap: 2px;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -206,6 +205,22 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   font-size: 12px;
   min-width: 0;
 }
+.listing-cell-body { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; cursor: pointer; }
+.listing-matchedname {
+  font-size: 10px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.listing-verify {
+  font-size: 10px;
+  color: var(--accent);
+  text-decoration: none;
+  margin-top: 2px;
+}
+.listing-verify:hover { text-decoration: underline; }
 .listing-cell.editing {
   background: var(--bg);
   border: 1px solid var(--accent);

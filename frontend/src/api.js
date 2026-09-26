@@ -44,8 +44,8 @@ export const api = {
   orderItems: (householdId, store, itemIds) =>
     request(`/households/${householdId}/cart/order`, { method: 'POST', body: { store, itemIds } }),
 
-  setListing: (itemId, store, { price, inStock, packSize }) =>
-    request(`/cart/${itemId}/listings/${store}`, { method: 'PUT', body: { price, inStock, packSize } }),
+  setListing: (itemId, store, { price, inStock, packSize, matchedName }) =>
+    request(`/cart/${itemId}/listings/${store}`, { method: 'PUT', body: { price, inStock, packSize, matchedName } }),
   clearListing: (itemId, store) => request(`/cart/${itemId}/listings/${store}`, { method: 'DELETE' }),
 
   getLivePricingSettings: (householdId) => request(`/households/${householdId}/live-pricing`),

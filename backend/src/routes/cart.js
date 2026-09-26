@@ -27,6 +27,8 @@ function serializeItem(item) {
       source: l.source,
       eta: l.eta,
       packSize: l.packSize,
+      matchedName: l.matchedName,
+      deeplink: l.deeplink,
       checkedBy: l.checkedBy ? { id: l.checkedBy.id, name: l.checkedBy.name } : null,
       checkedAt: l.checkedAt,
     })),
@@ -143,7 +145,7 @@ router.delete('/cart/:itemId', loadItemAndCheckMembership, ah(async (req, res) =
 // Upsert the price/stock a flatmate has seen for an item at a given store
 router.put('/cart/:itemId/listings/:store', loadItemAndCheckMembership, ah(async (req, res) => {
   const { store } = req.params;
-  const { price, inStock, packSize } = req.body;
+  const { price, inStock, packSize, matchedName } = req.body;
   if (!STORES.includes(store)) {
     return res.status(400).json({ error: `store must be one of ${STORES.join(', ')}` });
   }
@@ -159,6 +161,7 @@ router.put('/cart/:itemId/listings/:store', loadItemAndCheckMembership, ah(async
       price: inStock ? price : 0,
       inStock: !!inStock,
       packSize: packSize || null,
+      matchedName: matchedName || null,
       source: 'MANUAL',
       checkedById: req.userId,
     },
@@ -166,6 +169,7 @@ router.put('/cart/:itemId/listings/:store', loadItemAndCheckMembership, ah(async
       price: inStock ? price : 0,
       inStock: !!inStock,
       packSize: packSize || null,
+      matchedName: matchedName || null,
       source: 'MANUAL',
       checkedById: req.userId,
     },
@@ -179,6 +183,8 @@ router.put('/cart/:itemId/listings/:store', loadItemAndCheckMembership, ah(async
       inStock: listing.inStock,
       source: listing.source,
       packSize: listing.packSize,
+      matchedName: listing.matchedName,
+      deeplink: listing.deeplink,
       checkedBy: { id: listing.checkedBy.id, name: listing.checkedBy.name },
       checkedAt: listing.checkedAt,
     },
@@ -251,6 +257,8 @@ router.post('/households/:householdId/cart/:itemId/refresh-price', requireHouseh
     const inStock = !!best.available;
     const eta = best.platform?.sla ? String(best.platform.sla) : null;
     const packSize = best.quantity ? String(best.quantity) : null;
+    const matchedName = best.name ? String(best.name) + (best.brand ? ` (${best.brand})` : '') : null;
+    const deeplink = best.deeplink ? String(best.deeplink) : null;
     if (isNaN(price)) {
       notFound.push(store);
       continue;
@@ -258,10 +266,10 @@ router.post('/households/:householdId/cart/:itemId/refresh-price', requireHouseh
     try {
       await prisma.itemListing.upsert({
         where: { itemId_store: { itemId: item.id, store } },
-        create: { itemId: item.id, store, price, inStock, eta, packSize, source: 'LIVE_API', checkedById: req.userId },
-        update: { price, inStock, eta, packSize, source: 'LIVE_API', checkedById: req.userId },
+        create: { itemId: item.id, store, price, inStock, eta, packSize, matchedName, deeplink, source: 'LIVE_API', checkedById: req.userId },
+        update: { price, inStock, eta, packSize, matchedName, deeplink, source: 'LIVE_API', checkedById: req.userId },
       });
-      updated.push({ store, price, inStock, eta, packSize });
+      updated.push({ store, price, inStock, eta, packSize, matchedName });
     } catch {
       notFound.push(store);
     }

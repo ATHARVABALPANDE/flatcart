@@ -69,6 +69,7 @@ export default function ItemRow({ item, onSaveListing, onClearListing, onToggleO
               key={s.key}
               store={s.key}
               listing={listingByStore[s.key]}
+              itemName={item.name}
               onSave={(data) => onSaveListing(item, s.key, data)}
               onClear={() => onClearListing(item, s.key)}
             />
