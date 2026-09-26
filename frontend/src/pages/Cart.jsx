@@ -21,6 +21,8 @@ export default function Cart() {
   const [error, setError] = useState('');
   const [showInvite, setShowInvite] = useState(false);
   const [showOrdered, setShowOrdered] = useState(false);
+  const [pricing, setPricing] = useState(false);
+  const [priceMsg, setPriceMsg] = useState('');
   const pollRef = useRef(null);
 
   const loadList = useCallback(async () => {
@@ -94,6 +96,28 @@ export default function Cart() {
     const result = await api.refreshPrice(householdId, item.id, force);
     if (!result.skipped) loadList();
     return result;
+  }
+
+  async function handlePriceAll() {
+    setPricing(true);
+    setPriceMsg('');
+    try {
+      const result = await api.priceAll(householdId);
+      await loadList();
+      const parts = [`Priced ${result.priced}`];
+      if (result.skipped > 0) parts.push(`${result.skipped} still fresh`);
+      if (result.creditsRemaining != null) parts.push(`${result.creditsRemaining} credits left`);
+      // Show why it failed, not just that it did - the likely cause is running
+      // out of credits, which nobody can act on from a bare count.
+      if (result.failed.length > 0) parts.push(`${result.failed.length} failed: ${result.failed[0].reason}`);
+      setPriceMsg(parts.join(' · '));
+      // Step aside so the bar can go back to showing the order total.
+      setTimeout(() => setPriceMsg(''), 6000);
+    } catch (err) {
+      setPriceMsg(err.message);
+    } finally {
+      setPricing(false);
+    }
   }
 
   if (error) {
@@ -196,7 +220,15 @@ export default function Cart() {
         </section>
       )}
 
-      <StickyOrderBar pendingCount={pendingItems.length} plan={list?.plan} />
+      <StickyOrderBar
+        pendingCount={pendingItems.length}
+        plan={list?.plan}
+        needsPricingCount={list?.needsPricing?.length || 0}
+        liveConfigured={!!livePricing?.configured}
+        pricing={pricing}
+        priceMsg={priceMsg}
+        onPriceAll={handlePriceAll}
+      />
     </div>
   );
 }

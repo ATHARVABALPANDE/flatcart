@@ -67,6 +67,13 @@ export default function ItemRow({ item, onSaveListing, onClearListing, onToggleO
             </span>
           )}
         </div>
+        {!isOrdered && globalBest?.option.listing.matchedName && (
+          <span className="item-meta item-matched muted" title={globalBest.option.listing.matchedName}>
+            {globalBest.option.listing.matchedName} &middot;{' '}
+            {globalBest.option.packsNeeded > 1 ? `${globalBest.option.packsNeeded}× ` : ''}
+            {globalBest.option.listing.packSize}
+          </span>
+        )}
         <span className="item-meta muted">
           added by {item.addedBy?.name}
           {isOrdered && (

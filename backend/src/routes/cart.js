@@ -62,6 +62,9 @@ router.get('/households/:householdId/cart', requireHouseholdMember, ah(async (re
     plan,
     unchecked,
     unavailableEverywhere,
+    // Items a "Price my list" run would actually spend a credit on, so the UI
+    // can state the cost up front instead of surprising anyone.
+    needsPricing: items.filter((i) => i.status === 'PENDING' && needsLivePricing(i.listings)).map((i) => i.id),
   });
 }));
 
@@ -200,37 +203,25 @@ router.put('/cart/:itemId/listings/:store', loadItemAndCheckMembership, ah(async
 
 const QC_API_BASE = 'https://api.quickcommerceapi.com';
 const QC_PLATFORM_TO_STORE = { BlinkIt: 'BLINKIT', Zepto: 'ZEPTO', Swiggy: 'INSTAMART', BigBasket: 'BIGBASKET' };
+const PRICE_ALL_CONCURRENCY = 3;
 
-// Pull live price/stock for one item from quickcommerceapi.com across all 4 stores
-router.post('/households/:householdId/cart/:itemId/refresh-price', requireHouseholdMember, ah(async (req, res) => {
-  const item = await prisma.cartItem.findFirst({
-    where: { id: req.params.itemId, householdId: req.householdId },
-    include: { listings: true },
-  });
-  if (!item) return res.status(404).json({ error: 'Item not found in this household' });
-
-  const lastLiveCheck = item.listings
+function lastLiveCheckAt(listings) {
+  return listings
     .filter((l) => l.source === 'LIVE_API')
     .reduce((latest, l) => (!latest || l.checkedAt > latest ? l.checkedAt : latest), null);
-  if (lastLiveCheck && !req.body.force) {
-    const ageMs = Date.now() - new Date(lastLiveCheck).getTime();
-    if (ageMs < REFRESH_COOLDOWN_MS) {
-      const minutesLeft = Math.ceil((REFRESH_COOLDOWN_MS - ageMs) / 60000);
-      return res.status(200).json({
-        skipped: true,
-        reason: `Checked ${Math.round(ageMs / 60000)}m ago - still fresh. Try again in ${minutesLeft}m, or pass force to check anyway.`,
-        updated: [],
-        notFound: [],
-        creditsRemaining: null,
-      });
-    }
-  }
+}
 
-  const household = await prisma.household.findUnique({ where: { id: req.householdId } });
-  if (!household.qcApiKey || household.latitude == null || household.longitude == null) {
-    return res.status(400).json({ error: 'Live pricing is not configured for this household yet' });
-  }
+// An item only costs an API credit if it has never been priced live, or its
+// last check has aged past the cooldown. Everything else reuses what we have.
+function needsLivePricing(listings) {
+  const last = lastLiveCheckAt(listings);
+  return !last || Date.now() - new Date(last).getTime() >= REFRESH_COOLDOWN_MS;
+}
 
+// Pull live price/stock for one item across all 4 stores and persist the rows.
+// Never throws - a failed lookup comes back as { error } so a batch run can
+// keep going through the rest of the list.
+async function fetchLivePricesForItem(item, household, userId) {
   const params = new URLSearchParams({
     q: item.name,
     lat: String(household.latitude),
@@ -247,10 +238,10 @@ router.post('/households/:householdId/cart/:itemId/refresh-price', requireHouseh
     });
     data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      return res.status(502).json({ error: data.error || `Live pricing lookup failed (${response.status})` });
+      return { updated: [], notFound: [], error: data.error || `Live pricing lookup failed (${response.status})` };
     }
   } catch (err) {
-    return res.status(502).json({ error: `Could not reach live pricing service: ${err.message}` });
+    return { updated: [], notFound: [], error: `Could not reach live pricing service: ${err.message}` };
   }
 
   const results = data?.data?.results || {};
@@ -295,8 +286,8 @@ router.post('/households/:householdId/cart/:itemId/refresh-price', requireHouseh
       try {
         await prisma.itemListing.upsert({
           where: { itemId_store_packSize: { itemId: item.id, store, packSize } },
-          create: { itemId: item.id, store, price, inStock, eta, packSize, matchedName, deeplink, source: 'LIVE_API', checkedById: req.userId },
-          update: { price, inStock, eta, matchedName, deeplink, source: 'LIVE_API', checkedById: req.userId },
+          create: { itemId: item.id, store, price, inStock, eta, packSize, matchedName, deeplink, source: 'LIVE_API', checkedById: userId },
+          update: { price, inStock, eta, matchedName, deeplink, source: 'LIVE_API', checkedById: userId },
         });
         updated.push({ store, price, inStock, eta, packSize, matchedName });
         anySaved = true;
@@ -307,7 +298,83 @@ router.post('/households/:householdId/cart/:itemId/refresh-price', requireHouseh
     if (!anySaved) notFound.push(store);
   }
 
-  res.json({ updated, notFound, creditsRemaining: data?.credits_remaining ?? null });
+  return { updated, notFound, creditsRemaining: data?.credits_remaining ?? null };
+}
+
+function requireLivePricingConfigured(household, res) {
+  if (!household.qcApiKey || household.latitude == null || household.longitude == null) {
+    res.status(400).json({ error: 'Live pricing is not configured for this household yet' });
+    return false;
+  }
+  return true;
+}
+
+// Pull live price/stock for one item from quickcommerceapi.com across all 4 stores
+router.post('/households/:householdId/cart/:itemId/refresh-price', requireHouseholdMember, ah(async (req, res) => {
+  const item = await prisma.cartItem.findFirst({
+    where: { id: req.params.itemId, householdId: req.householdId },
+    include: { listings: true },
+  });
+  if (!item) return res.status(404).json({ error: 'Item not found in this household' });
+
+  const lastLiveCheck = lastLiveCheckAt(item.listings);
+  if (lastLiveCheck && !req.body.force) {
+    const ageMs = Date.now() - new Date(lastLiveCheck).getTime();
+    if (ageMs < REFRESH_COOLDOWN_MS) {
+      const minutesLeft = Math.ceil((REFRESH_COOLDOWN_MS - ageMs) / 60000);
+      return res.status(200).json({
+        skipped: true,
+        reason: `Checked ${Math.round(ageMs / 60000)}m ago - still fresh. Try again in ${minutesLeft}m, or pass force to check anyway.`,
+        updated: [],
+        notFound: [],
+        creditsRemaining: null,
+      });
+    }
+  }
+
+  const household = await prisma.household.findUnique({ where: { id: req.householdId } });
+  if (!requireLivePricingConfigured(household, res)) return;
+
+  const result = await fetchLivePricesForItem(item, household, req.userId);
+  if (result.error) return res.status(502).json({ error: result.error });
+
+  res.json({ updated: result.updated, notFound: result.notFound, creditsRemaining: result.creditsRemaining });
+}));
+
+// Price the whole list in one go - the "Price my list" action. Only items that
+// would actually cost a credit are fetched; anything still inside the cooldown
+// is reported as skipped so repeat taps are free.
+router.post('/households/:householdId/cart/price-all', requireHouseholdMember, ah(async (req, res) => {
+  const household = await prisma.household.findUnique({ where: { id: req.householdId } });
+  if (!requireLivePricingConfigured(household, res)) return;
+
+  const items = await prisma.cartItem.findMany({
+    where: { householdId: req.householdId, status: 'PENDING' },
+    include: { listings: true },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const toPrice = items.filter((i) => needsLivePricing(i.listings));
+  const skipped = items.length - toPrice.length;
+
+  let priced = 0;
+  let creditsRemaining = null;
+  const failed = [];
+
+  for (let i = 0; i < toPrice.length; i += PRICE_ALL_CONCURRENCY) {
+    const chunk = toPrice.slice(i, i + PRICE_ALL_CONCURRENCY);
+    const results = await Promise.all(chunk.map((item) => fetchLivePricesForItem(item, household, req.userId)));
+    results.forEach((result, idx) => {
+      if (result.error) {
+        failed.push({ name: chunk[idx].name, reason: result.error });
+        return;
+      }
+      priced++;
+      if (result.creditsRemaining != null) creditsRemaining = result.creditsRemaining;
+    });
+  }
+
+  res.json({ priced, skipped, failed, creditsRemaining });
 }));
 
 // Remove one pack-size option for a store (defaults to the plain "1 unit" row)

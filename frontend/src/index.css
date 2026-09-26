@@ -202,6 +202,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .item-note { font-size: 12px; color: var(--muted); font-style: italic; }
 .item-meta { flex-basis: 100%; font-size: 12px; }
 .item-meta.warning { color: var(--danger); font-weight: 600; }
+.item-matched {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
 .item-actions { margin-left: auto; cursor: default; display: flex; align-items: center; gap: 12px; }
 .expand-toggle { font-size: 10px; }
 
@@ -401,9 +407,15 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   color: white;
   box-shadow: var(--shadow-lg);
 }
-.sticky-order-info { display: flex; flex-direction: column; gap: 1px; }
+.sticky-order-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .sticky-order-count { font-size: 12px; font-weight: 700; opacity: 0.85; }
-.sticky-order-total { font-size: 15px; font-weight: 800; }
+.sticky-order-total {
+  font-size: 15px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .sticky-order-cta {
   background: white;
   color: var(--accent-dark);
