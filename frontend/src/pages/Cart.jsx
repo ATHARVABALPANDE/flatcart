@@ -23,6 +23,7 @@ export default function Cart() {
   const [showOrdered, setShowOrdered] = useState(false);
   const [pricing, setPricing] = useState(false);
   const [priceMsg, setPriceMsg] = useState('');
+  const [pickedStore, setPickedStore] = useState(null);
   const pollRef = useRef(null);
 
   const loadList = useCallback(async () => {
@@ -132,6 +133,14 @@ export default function Cart() {
   const pendingItems = list?.items.filter((i) => i.status === 'PENDING') || [];
   const orderedItems = list?.items.filter((i) => i.status === 'ORDERED') || [];
 
+  // Overriding the recommendation with a single store changes what the order
+  // costs, so the bar has to follow the choice rather than keep quoting the
+  // recommendation's total.
+  const picked = pickedStore ? list?.perStore?.find((s) => s.store === pickedStore) : null;
+  const shownPlan = picked
+    ? { storesUsed: 1, totalCost: picked.subtotal, stores: [{ store: picked.store, items: picked.items, subtotal: picked.subtotal }] }
+    : list?.plan;
+
   return (
     <div className="page">
       <header className="topbar">
@@ -188,10 +197,13 @@ export default function Cart() {
         <div id="recommended-order">
           <PlanSummary
             plan={list.plan}
+            perStore={list.perStore}
             unchecked={list.unchecked}
             unavailableEverywhere={list.unavailableEverywhere}
             items={list.items}
             onOrderStore={handleOrderStore}
+            pickedStore={pickedStore}
+            onPickStore={setPickedStore}
           />
         </div>
       )}
@@ -222,7 +234,7 @@ export default function Cart() {
 
       <StickyOrderBar
         pendingCount={pendingItems.length}
-        plan={list?.plan}
+        plan={shownPlan}
         needsPricingCount={list?.needsPricing?.length || 0}
         liveConfigured={!!livePricing?.configured}
         pricing={pricing}

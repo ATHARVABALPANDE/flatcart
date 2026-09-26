@@ -33,6 +33,19 @@ function bestOptionForStore(listings, requestedQty) {
   return best;
 }
 
+// One line of an order: what to buy, how many packs, and what that costs.
+function planItem(item, option) {
+  return {
+    id: item.id,
+    name: item.name,
+    price: option.totalCost,
+    packSize: option.listing.packSize,
+    packsNeeded: option.packsNeeded,
+    unitPrice: option.listing.price,
+    deeplink: option.listing.deeplink || null,
+  };
+}
+
 // items: [{ id, quantity, status, listings: [{ store, price, inStock, packSize }] }]
 export function computePlan(items) {
   const pending = items.filter((i) => i.status === 'PENDING');
@@ -70,6 +83,9 @@ export function computePlan(items) {
       totalCoverable: coverable.length,
       subtotal,
       missingItemIds,
+      // Full breakdown so someone who overrides the recommendation and picks
+      // this store gets the same order detail the recommendation would give.
+      items: availableWithOption.map(({ item, option }) => planItem(item, option)),
     };
   });
 
@@ -94,15 +110,7 @@ export function computePlan(items) {
       if (bestStore) {
         coveredCount++;
         if (!assignment[bestStore]) assignment[bestStore] = [];
-        assignment[bestStore].push({
-          id: item.id,
-          name: item.name,
-          price: bestOption.totalCost,
-          packSize: bestOption.listing.packSize,
-          packsNeeded: bestOption.packsNeeded,
-          unitPrice: bestOption.listing.price,
-          deeplink: bestOption.listing.deeplink || null,
-        });
+        assignment[bestStore].push(planItem(item, bestOption));
       }
     }
 
