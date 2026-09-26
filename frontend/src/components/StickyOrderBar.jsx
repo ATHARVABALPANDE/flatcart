@@ -1,3 +1,5 @@
+import { useNavigate } from 'react-router-dom';
+
 export default function StickyOrderBar({
   pendingCount,
   plan,
@@ -7,16 +9,13 @@ export default function StickyOrderBar({
   priceMsg,
   onPriceAll,
 }) {
+  const navigate = useNavigate();
   if (pendingCount === 0) return null;
 
   const hasPlan = plan && plan.stores.length > 0;
   // Pricing wins over ordering while anything is unpriced - completing the
   // picture first is what stops someone ordering a half-known list.
   const canPrice = liveConfigured && needsPricingCount > 0;
-
-  function scrollToPlan() {
-    document.getElementById('recommended-order')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
 
   let detail;
   if (priceMsg) detail = priceMsg;
@@ -38,7 +37,7 @@ export default function StickyOrderBar({
           {pricing ? 'Pricing...' : `Price ${needsPricingCount} item${needsPricingCount === 1 ? '' : 's'}`}
         </button>
       ) : (
-        <button type="button" className="sticky-order-cta" onClick={scrollToPlan}>
+        <button type="button" className="sticky-order-cta" onClick={() => navigate('../order')}>
           {hasPlan ? 'View order' : 'Check prices'}
         </button>
       )}

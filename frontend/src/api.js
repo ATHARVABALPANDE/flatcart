@@ -31,6 +31,7 @@ export const api = {
   signup: (email, password, name) => request('/auth/signup', { method: 'POST', body: { email, password, name } }),
   login: (email, password) => request('/auth/login', { method: 'POST', body: { email, password } }),
   me: () => request('/auth/me'),
+  updateProfile: (patch) => request('/auth/me', { method: 'PATCH', body: patch }),
 
   myHouseholds: () => request('/households'),
   createHousehold: (name) => request('/households', { method: 'POST', body: { name } }),

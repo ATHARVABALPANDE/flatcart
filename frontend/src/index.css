@@ -490,11 +490,73 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .store-settings-row button { margin-left: auto; padding: 6px 14px; font-size: 12px; }
 
-.sticky-order-bar {
+/* Height of the tab bar's content, before the phone's safe-area padding. The
+   order bar stacks directly on top of it, and the page clears both. */
+:root { --tab-bar-h: 54px; }
+
+.page.has-tabs { padding-bottom: calc(var(--tab-bar-h) + 130px); }
+
+.tab-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 40;
+  display: flex;
+  max-width: 720px;
+  margin: 0 auto;
+  background: var(--card);
+  box-shadow: 0 -2px 14px rgba(31, 26, 26, 0.1);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.tab-link {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 9px 4px 10px;
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.tab-link.active { color: var(--accent); }
+.tab-icon { font-size: 17px; line-height: 1.1; }
+.tab-label { letter-spacing: 0.2px; }
+.tab-badge {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  margin-left: 6px;
+  min-width: 16px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.profile-form { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.profile-form .field { display: flex; flex-direction: column; gap: 4px; width: 100%; max-width: 320px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.profile-form .field input {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+}
+.profile-form p { margin: 0; }
+
+.sticky-order-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tab-bar-h) + env(safe-area-inset-bottom, 0px));
   z-index: 30;
   display: flex;
   align-items: center;
@@ -502,7 +564,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   gap: 12px;
   max-width: 720px;
   margin: 0 auto;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 12px 16px;
   background: var(--accent);
   color: white;
   box-shadow: var(--shadow-lg);

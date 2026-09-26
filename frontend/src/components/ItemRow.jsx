@@ -6,9 +6,14 @@ import { comparisonIssue, bestOption } from '../quantity.js';
 export default function ItemRow({ item, onSaveListing, onClearListing, onToggleOrdered, onDelete, onRefreshPrice, liveConfigured }) {
   const [expanded, setExpanded] = useState(false);
 
+  // Arriving from a "needs a price check" link on the order tab: open this row
+  // and bring it into view, since a client-side route change won't scroll to
+  // the anchor the way a plain page load would.
   useEffect(() => {
     const checkHash = () => {
-      if (window.location.hash === `#item-${item.id}`) setExpanded(true);
+      if (window.location.hash !== `#item-${item.id}`) return;
+      setExpanded(true);
+      document.getElementById(`item-${item.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
     checkHash();
     window.addEventListener('hashchange', checkHash);

@@ -3,7 +3,11 @@ import { useAuth } from './AuthContext.jsx';
 import Login from './pages/Login.jsx';
 import Signup from './pages/Signup.jsx';
 import Households from './pages/Households.jsx';
-import Cart from './pages/Cart.jsx';
+import HouseholdLayout from './pages/HouseholdLayout.jsx';
+import ItemsTab from './pages/ItemsTab.jsx';
+import OrderTab from './pages/OrderTab.jsx';
+import FlatTab from './pages/FlatTab.jsx';
+import ProfileTab from './pages/ProfileTab.jsx';
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
@@ -29,10 +33,16 @@ export default function App() {
         path="/household/:householdId"
         element={
           <RequireAuth>
-            <Cart />
+            <HouseholdLayout />
           </RequireAuth>
         }
-      />
+      >
+        <Route index element={<Navigate to="list" replace />} />
+        <Route path="list" element={<ItemsTab />} />
+        <Route path="order" element={<OrderTab />} />
+        <Route path="flat" element={<FlatTab />} />
+        <Route path="me" element={<ProfileTab />} />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

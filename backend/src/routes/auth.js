@@ -12,7 +12,7 @@ function signToken(userId) {
 }
 
 function publicUser(user) {
-  return { id: user.id, email: user.email, name: user.name };
+  return { id: user.id, email: user.email, name: user.name, createdAt: user.createdAt };
 }
 
 router.post('/signup', ah(async (req, res) => {
@@ -52,6 +52,41 @@ router.get('/me', requireAuth, ah(async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.userId } });
   if (!user) return res.status(404).json({ error: 'User not found' });
   res.json({ user: publicUser(user) });
+}));
+
+// Update your own name and/or password. Changing a password requires proving
+// you know the current one, so a borrowed open session can't lock the owner
+// out of their own account.
+router.patch('/me', requireAuth, ah(async (req, res) => {
+  const { name, currentPassword, newPassword } = req.body;
+  const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const data = {};
+
+  if (name !== undefined) {
+    if (!name.trim()) return res.status(400).json({ error: 'Name cannot be empty' });
+    data.name = name.trim();
+  }
+
+  if (newPassword) {
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    }
+    if (!currentPassword) {
+      return res.status(400).json({ error: 'Enter your current password to change it' });
+    }
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) return res.status(401).json({ error: 'Current password is not correct' });
+    data.passwordHash = await bcrypt.hash(newPassword, 10);
+  }
+
+  if (Object.keys(data).length === 0) {
+    return res.status(400).json({ error: 'Nothing to update' });
+  }
+
+  const updated = await prisma.user.update({ where: { id: req.userId }, data });
+  res.json({ user: publicUser(updated) });
 }));
 
 export default router;

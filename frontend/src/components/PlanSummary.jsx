@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { storeInfo } from '../stores.js';
 
 function StoreBlock({ store, items, subtotal, onOrderStore }) {
@@ -147,7 +148,7 @@ export default function PlanSummary({
           {unchecked.map((id, idx) => (
             <span key={id}>
               {idx > 0 && ', '}
-              <a className="plan-note-link" href={`#item-${id}`}>{itemsById[id]?.name}</a>
+              <Link className="plan-note-link" to={`../list#item-${id}`}>{itemsById[id]?.name}</Link>
             </span>
           ))}
         </p>
